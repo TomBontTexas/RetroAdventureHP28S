@@ -337,7 +337,7 @@
       <tr><td><kbd>8</kbd> <kbd>&uarr;</kbd></td><td>Exploring</td><td>Move forward one space</td></tr>
       <tr><td><kbd>4</kbd> <kbd>&larr;</kbd> / <kbd>6</kbd> <kbd>&rarr;</kbd></td><td>Exploring</td><td>Turn left / right</td></tr>
       <tr><td><kbd>5</kbd></td><td>Exploring</td><td>About face</td></tr>
-      <tr><td><kbd>2</kbd> <kbd>&darr;</kbd></td><td>Exploring</td><td>Go back one step (only right after moving forward)</td></tr>
+      <tr><td><kbd>2</kbd> <kbd>&darr;</kbd></td><td>Exploring</td><td>Back up one step, still facing the same way</td></tr>
       <tr><td><kbd>0</kbd> <kbd>Space</kbd></td><td>Fighting</td><td>Attack with your weapon</td></tr>
       <tr><td><kbd>.</kbd></td><td>Exploring</td><td>Rest: regain 1 HP and 1 SP (hold the key to rest several turns)</td></tr>
       <tr><td><kbd>*</kbd> / <kbd>/</kbd></td><td>Exploring</td><td>Get / drop an item</td></tr>
@@ -1101,10 +1101,18 @@ const ACTIONS = [
     M2('N=' + G.YLOC + ' E=' + G.XLOC + ' D=' + G.DPTH);
     G.SP -= 1;
   },
-  /* 22 back */ () => {
-    if (FS(6)) M1('Cannot backup');
-    else if (blockedBack()) { M1('Cannot backup'); M2('A wall is behind you'); }
-    else { SF(6); G.XLOC = G.OXLOC; G.YLOC = G.OYLOC; G.anim = 'back'; mspcl(G.XLOC, G.YLOC); }
+  /* 22 back: one step backwards, still facing the same way (the original returned you to the last square) */ () => {
+    const behind = [2, 1, 4, 3][G.FDIR - 1];
+    const to = move(G.XLOC, G.YLOC, behind);
+    if ((sget(G.XLOC, G.YLOC) & [8n, 4n, 2n, 1n][behind - 1]) !== 0n || !onMap(to[0], to[1])) {
+      beep(1000, .05); M1('Cannot backup'); M2('A wall is behind you');
+      return;
+    }
+    G.OXLOC = G.XLOC; G.OYLOC = G.YLOC;
+    [G.XLOC, G.YLOC] = to;
+    CF(6);
+    G.anim = 'back';
+    mspcl(G.XLOC, G.YLOC);
   },
   /* 23 quit */ () => { SF(3); SF(2); }
 ];
