@@ -188,7 +188,7 @@
   details td, details th { padding: 3px 10px 3px 0; text-align: left; vertical-align: top; }
   details th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
   details code, kbd { font: 13px ui-monospace, Consolas, monospace; background: #34312d; padding: 1px 5px; border-radius: 4px; }
-  footer { color: var(--muted); font-size: 12px; margin: 18px 0 6px; text-align: center; }
+  footer { color: var(--muted); font-size: 12px; line-height: 1.6; margin: 18px 0 6px; text-align: center; }
   a { color: var(--blue); }
 </style>
 </head>
@@ -355,7 +355,11 @@
       granted. This is a JavaScript port of that program.</p>
   </details>
 
-  <footer>HP-28S 3D Adventure &middot; v<span id="ver2"></span></footer>
+  <footer>
+    <div>HP-28S 3D Adventure &middot; v<span id="ver2"></span></div>
+    <div>&copy; 2026 Tom Bont. Based on the original HP-28S 3D Adventure program &copy; 1990 Paul Dale.</div>
+    <div>Free for personal, non-commercial use. Not for sale or any commercial use.</div>
+  </footer>
 </div>
 
 <script src="version.js"></script>
