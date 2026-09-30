@@ -166,6 +166,7 @@
   .legend i { display: inline-block; width: 14px; height: 4px; border-radius: 2px; }
   .lg-path { background: #e0a24a; }
   .lg-door { background: #b8742a; height: 7px !important; outline: 1px solid #2a1606; }
+  .lightout { color: #ff9a3a; }
   .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px 10px; font-size: 14px; }
   .stats div span { color: var(--muted); font-size: 12px; display: block; }
   .log { font: 13px/1.4 ui-monospace, Consolas, monospace; height: 96px; flex: none; overflow-y: auto;
@@ -753,7 +754,11 @@ function mspcl(x, y) {
   if (q && rnd() >= .5) {
     if (q < 16) {
       // 1 and 2 were UP / DWN in the original, which were never defined (and no square uses them)
-      ({ 3: () => CF(4), 4: () => SF(4), 5: () => SF(5), 6: () => CF(5), 7: () => SF(6) })[q]?.();
+      ({
+        3: () => { if (FS(4)) { CF(4); M2('Your light went out'); } },
+        4: () => { if (!FS(4)) { SF(4); M1('Your light is back'); } },
+        5: () => SF(5), 6: () => CF(5), 7: () => SF(6)
+      })[q]?.();
     } else dam(drl(q >> 4, q & 15));
   }
   if (v >> 48n) {                                        // teleport
@@ -1596,8 +1601,9 @@ function updatePanel() {
   const combat = FS(9);
   document.getElementById('stats').innerHTML = [
     ['Level', G.LVL], ['Experience', G.EXPS], ['Armour', G.ARM],
-    ['Hit points', Math.max(G.HP, 0) + ' / ' + G.MHP], ['Spell energy', G.SP + ' / ' + G.MSP], ['State', G.over ? 'Game over' : combat ? 'Fighting' : 'Exploring']
-  ].map(([k, v]) => '<div><span>' + k + '</span>' + esc(v) + '</div>').join('');
+    ['Hit points', Math.max(G.HP, 0) + ' / ' + G.MHP], ['Spell energy', G.SP + ' / ' + G.MSP], ['State', G.over ? 'Game over' : combat ? 'Fighting' : 'Exploring'],
+    ['Light', FS(4) ? 'On' : '<b class="lightout">Out</b>']
+  ].map(([k, v]) => '<div><span>' + k + '</span>' + (k === 'Light' ? v : esc(v)) + '</div>').join('');
   const picking = !!waiting && waiting.mode === 'pick';
   document.getElementById('calc').classList.toggle('picking', picking);
   renderInv();

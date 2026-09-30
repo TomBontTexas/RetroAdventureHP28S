@@ -423,7 +423,8 @@ const V3 = (() => {
   }
   function light(z) {
     if (FS(4)) return Math.min(1, 1.3 * Math.exp(-0.33 * (z - 0.3))) * Math.min(1, Math.max(0, (MAXD - z) / 2));
-    return Math.min(1, 1.15 * Math.exp(-2.6 * (z - 0.5)));
+    // Light out: like the HP-28, you still see your own square (up to its far wall), nothing beyond
+    return z <= 1.52 ? 0.85 : Math.max(0, 0.85 - (z - 1.52) * 4);
   }
   function sh(c, b) {
     const r = (c & 255) * b * 1.06, g = ((c >>> 8) & 255) * b * .94, bl = ((c >>> 16) & 255) * b * .8;

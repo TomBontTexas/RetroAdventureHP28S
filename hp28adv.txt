@@ -1,0 +1,1340 @@
+This program copyright Paul Dale 1990.  Unrestricted non-commercial use is
+granted.
+
+
+This is a game in the genere of walk through a maze, killing everything
+in sight, collecting various items of interest along the way.  The aim
+of the game is to collect as many gems as possible and to kill as much
+as possible.  The display draws a full three dimensional line image
+of what can be seen from the current position (and it does it quite
+quickly, I should add --- faster than some personal computer games :).
+The maze, itself is hardwired (i.e. it doesn't change between games).
+While playing, it is possible to pick up and drop items (but only one
+item per square is permitted).
+
+------------------------------ ------------------------------ ------------ 
+The player commands are: 
+
+Key | Useable | Description 
+----+---------+--------------- ------------------------------ ------------ 
+ 8  | Adv     | Move forward one space 
+ 5  | Adv     | About face (turn around) 
+ 4  | Adv     | Turn to the left 
+ 6  | Adv     | Turn to the right 
+ 2  | Adv     | Go back 
+ 0  | Any     | Redraw screen, use your weapon if in combat 
+ .  | Adv     | Rest 
+ +  | Any     | Quit from game 
+ *  | Adv     | Get an item (multiply key) 
+ /  | Adv     | Drop an item (divide key) 
+ A  | Adv     | Ascend a level 
+ D  | Adv     | Descend a level 
+ C  | Combat  | Cast a chill spell 
+ E  | Combat  | Cast a electric bolt spell 
+ F  | Combat  | Cast a fireball spell 
+ M  | Combat  | Cast a magic missile spell 
+ L  | Adv     | Cast a location spell 
+ H  | Any     | Cast a heal spell 
+ S  | Adv     | Search for secret doors/panels 
+ U  | Any     | Use an item from your inventory 
+ R  | Adv     | Remove armour, weapon or ring 
+ I  | Adv     | Examine your inventory 
+ '  | Combat  | Flee the combat 
+----+---------+--------------- ------------------------------ ------------ 
+Adv means that the command can only be used while not fighting.
+Combat means the command is available only while fighting.  Any means
+that the command is always available.
+
+When an inventory display is on the screen, the following keys are usable:
+(Inventory mode, comes up with a prompt at the bottom of the screen and
+various things preceeded by a digit and a colon ':').
+
+KEY | Description 
+----+------------------------- ------------------------------ ------------ 
+ .  | Return without selecting anything 
+ 0  | As . 
+ 1  | Select the first item on the display 
+ 2  | Select the second item on the display 
+ 3  | Select the third item on the display 
+----+------------------------- ------------------------------ ------------ 
+Also usable are the up and down soft keys (the middle two in the top row
+of the keyboard), these scroll the inventory display up or down one line.
+
+------------------------------ ------------------------------ ------------ 
+Suggested order of entry of these programs: 
+        Start with the graphics routines at the end since they are the 
+          ones most likely to cause a memory lost (due to typing errors). 
+        Then enter PMV since it is too large to edit later on. 
+        MAP should also be entered early since it is also quite large. 
+        Finally, the rest in any desired order. 
+(You should end up with 83 variables in the directory!) 
+
+Before running the program, you should turn OFF undo, command and last
+(to reduce the quantity of memory absorbed by the system software).
+
+This program is for the HP28S rom version 2BB only.  It requires about
+24k just to hold the program and its data, several more k are required
+while the game is being played.  It would be best to run it on a virgin
+system so start by clearing memory.
+
+
+Top level list of the lists of each item type 
+LITEMS [544A] 
+{ LWAND LRING LPOT LSCRL LWEAP LARMR LFOOD LGEM } 
+
+The list of all the different potions in the game 
+LPOT [EB41] 
+{ { # 13000000h "Green potion" "Potion of healing" 
+    << 1 8 DRL HP + MHP MIN 'HP' STO "You feel better" M1 >> 
+    0 
+  } 
+  { # 23000000h "Red vial" "Extra healing" 
+    << 2 8 DRL HP + MHP MIN 'HP' STO "You feel well" M1 >> 
+    0 
+  } 
+  { # 33000000h  "Clear juice" "Pure speed potion" 
+    << 'SPD' 1 STO+ "The world slows" M1 >> 
+    << 'SPD' 1 STO- >> 
+  } 
+
+} 
+
+The list of all the different kinds of wands 
+LWAND [847C] 
+{ { # 11000000h "Black wand" "Used wand" 
+    << "Fizzle splutter" M1 >> 
+    1 
+  } 
+  { # 21000000h "Willow wand" "Wand of fire" 
+    << "Blast of fire" M1 9 FS? RAND .6 < 
+      << 6 6 DRL MNSTR 4 GET # 1h AND # 0h =/= 
+        << 2 / IP 
+        >> IFT MDAM 
+      >> IFT 
+    >> 
+    .9 
+  } 
+  { # 31000000h "Oaken wand" "Wand of lightning" 
+    << "Bolt of lightning" M1 9 FS? RAND .4 < AND 
+      << 8 6 DRL MNSTR 4 GET # 4h AND # 0h =/= 
+        << 4 / IP 
+        >> IFT MDAM 
+      >> IFT 
+    >> 
+    .8 
+  } 
+  { # 41000000h "Tin wand" "Wand of striking" 
+    << "A heavy thump" M1 9 FS? RAND .9 < AND 
+      << 5 4 DRL MDAM 
+      >> IFT 
+    >> 
+    .95 
+  } 
+  { # 51000000h "Bronze wand" "Wand of healing" 
+    << "Blast of fire" M1 9 FS? RAND .8 < AND 
+      << 'MNSTR' 2 DUP2 GET 2 8 DRL + PUT 
+      >> IFT 
+    >> 
+    .1 
+  } 
+} 
+
+All the different kinds of scrolls 
+LSCRL [FCD0] 
+{ { # 14000000h "Paper scroll" "Identify" 
+    << IVT "Identify which?" IPICK GET DUP 3 GET DUP 0 SAME 
+      << SWAP DROP >> 
+      << DROP 2 GET 
+      >> IFTE M1 
+    >> 
+  } 
+  { # 24000000h "Papyrus scroll" "Gain level" 
+    << GAINL 2 LVL ^ 'EXPS' STO 
+    >> 
+  } 
+  { # 34000000h "Gilted scroll" "Physical heal" 
+    << MHP 'HP' STO "You feel well" M1 
+    >> 
+  } 
+  { # 44000000h "Vellum scroll" "Protection" 
+    << 'ARM' 1 STO+ "You feel safe" M1 
+    >> 
+  } 
+  { # 54000000h "Ornate scroll" "Psychic healing" 
+    << MSP 'SP' STO "Feel refreshed" M1 
+    >> 
+  } 
+  { # 64000000h "Tattered scroll" "Total healing" 
+    << MHP 'HP' STO MSP 'SP' STO "You feel great" M1 
+    >> 
+  } 
+  { # 74000000h "Ancient scroll" "Blank paper" 
+    << "Nothing happens" M1 >> 
+  } 
+  { # 84000000h  "Bloody scroll" "Agression" 
+    << 1 4 DRL 'MHP' OVER 'HP' STO+ STO+ "Your body glows" M1 
+    >> 
+  } 
+} 
+
+and rings... 
+LRING [2676] 
+{ { # 12000000h "Gaudy ring" "Ring of healing" 
+    << 8 SF "Seem fitter" M1 >> 
+    << 8 CF "Feel worse" M1 >> 
+  } 
+  { # 22000000h "Silver band" "Protection ring" 
+    << 8 'MHP' STO+ "Feel stronger" M1 >> 
+    << 'MHP' 8 STO- "Weaker again" M1 >> 
+  } 
+} 
+
+and weapons... 
+LWEAP [A14F] 
+{ { # 15000000h "Dagger" 0 d4 } 
+  { # 25000000h "Mace" 0 << 1 6 DRL >> } 
+  { # 35000000h "Long sword" 0 d8 } 
+  { # 45000000h "Long sword" "Hero's blade" << 2 d10 >> } 
+} 
+
+and armour... 
+LARM [EA91] 
+{ { # 16000000h "Partial leather" 0 1 } 
+  { # 26000000h "Studded leather" 0 3 } 
+  { # 36000000h "Leather" "Enchanted leather" 5 } 
+  { # 46000000h "Scalemail" 0 5 } 
+  { # 56000000h "Elf chainmail" 0 7 } 
+} 
+
+and gemstones... 
+LGEM [C0BD] 
+{ { # 18000000h "Emerald" 0 '1000*DRL(2,4)' } 
+  { # 28000000h "Topaz" 0 '500*DRL(1,8)' } 
+  { # 38000000h "Diamond" 0 '10000*DRL(2,6)' } 
+  { # 48000000h "Black rock" "Sorcerer's stone" 1000000 } 
+  { # 58000000h "Gold nugget" 0 '5000*DRL(2,5)' } 
+  { # 68000000h "Gold nugget" "Fool's gold" 0 } 
+} 
+
+and the different kinds of food... 
+LFOOD [90AD] 
+{ { # 17000000h MG1 "Standard rations" 2 0 } 
+  { # 27000000h MG1 "Super rations" 4 0 } 
+  { # 37000000h MG1 "Magic rations" 5 1 } 
+  { # 47000000h MG1 "Toxic waste" -1 0 } 
+  { # 57000000h MG2 "Wizard roll" 0 4 } 
+  { # 67000000h MG2 "Stale bread" 1 0 } 
+} 
+
+MG1 [3B76] 
+"Rations" 
+MG2 [D04] 
+"Bread" 
+
+The list of monsters... 
+MLST [9CDC] 
+{ { 1 << 1 6 DRL >> 0 # 0h { << 1 6 DRL >> } 5 "Imp" } 
+  { 1 d8 0 # 0h { d8 } 8 "Orc" } 
+  { 2 << 2 8 DRL >> 0 # 0h { d8 } 15 "Gnome" } 
+  { 1 d4 0 # 0h { << 1 5 DRL >> } 3 "Rat" } 
+  { 2 << 2 7 DRL >> 1 # 0h { << 1 d10 >> } 12 "Ghoul" } 
+  { 2 << 2 2 6 DRL + >> 1 # 0h { d8 } 10 "Slime" } 
+  { 2 << 2 d10 >> 0 # 0h { d8 } 20 "Pixie" } 
+  { 3 << 3 8 DRL >> 1 # 0h { d8 d8 } 50 "Ogre" } 
+  { 4 << 4 8 DRL >> 4 # 6h { << 2 4 DRL >> << 2 4 DRL >> } 80 "Shade" } 
+  { 2 << 2 6 DRL >> 0 # 0h { d4 
+    << 1 
+      << 1 DAM RAND .5 > 
+        << 1 SELF DAEMON 
+        >> IFT 
+      >> DAEMON 0 
+    >> } 40 "Snake" } 
+  { 3 << 5 8 DRL >> 1 # 1h { d4 d4 d4 } 120 "Ooze" } 
+  { 3 << 5 8 DRL >> 1 # 2h { d4 d4 d4 } 120 "Mold" } 
+  { 5 << 6 9 DRL >> 2 # 3h { << 2 8 DRL >> MRGN } 400 "Troll" } 
+  { 7 << 8 9 DRL >> 3 # 3h { << 3 7 DRL >> MRGN } 800 "Troll" } 
+  { 8 << 9 DUP DRL >> 1 # 4h { << 2 12 DRL >> } 900 "Giant" } 
+  { 10 << 10 DUP DRL >> 3 # 7h { << 1 d10 >> << 1 d10 >> d4 } 1500 "Guard" } 
+  { 15 << 9 SQ 6 9 DRL + >> 3 # Fh { d4 << 10 6 DRL >> << 7 4 DRL >> } 130000 
+    "Magi" } 
+
+} 
+
+The game map three levels of about ten by ten each with heaps of stuff... 
+MAP [4111] 
+{ { 0 { 0 # 80007h 1 # E0001h 2 # C0003h 3 # C0003h 4 # 60009h 
+        5 # 20805h 6 # 80403h 7 # C0003h 8 # 400000C0003h 9 # 17040209h 
+      } 
+    1 { -1 # A0005h 0 # 1604200Bh 1 # 3000Ch 4 # 3000Ch 
+        5 # 2002601020Ch 9 # 2000Dh 
+      } 
+    2 { -1 # 3000Ch 0 # 1500010Eh 1 # 30804h 2 # 10025080403h 
+        3 # 2304002Bh 4 # 11090006 5 # 4010Ah 8 # 3302000Dh 9 # 410023000Ch 
+      } 
+    3 { -1 # 4100290006h 0 # C0201h 1 # 5000Ah 8 # 60000010806h 9 # 1402Eh 
+      } 
+    4 { 0 # 40000080106h 1 # 11060009h 2 # 20805h 3 # 6005100040Bh 
+        4 # 5000000020Dh 5 # 40400000000020Dh 6 # 5000000020Dh 
+      } 
+    5 { 1 # 1020Ch 2 # 3000Ch 3 # 8100380007h 4 # 110C0300h 5 # C0300h 
+        6 # 40B00h 7 # 40Bh 
+      } 
+    6 { 1 # 80106h 2 # 50802h 3 # 20409h 4 # 50700000000010Eh 
+        5 # 50000002906h 6 # 40600000000050Ah 
+      } 
+    7 { 3 # 30804h 4 # 50300000000040Bh 5 # 54080106h 6 # 42803h 
+        7 # 50500000000040Bh 
+      } 
+    8 { 1 # 1A0005h 2 # C0003h 3 # 5000Ah 4 # 40000080205h 
+        5 # 40026060009h 6 # 4102010Ch 
+      } 
+    9 { 1 # 63000Ch 4 # 2010Ch 5 # 2401000Eh 6 # 1040Ah 
+      } 
+    10 { 1 # 3300F90006h 2 # 6C0003h 3 # 1C0003h 4 # 5000Ah 
+      } 
+  } 
+  { 0 { 0 # B0000000A05h 1 # 80403h 2 # 140C0003h 3 # E0001h 4 # C0003h 
+        5 # 40209h 7 # 80205h 8 # A0014B40803h 9 # 20409h 
+      } 
+    1 { 0 # B04h 1 # 240070040Bh 3 # 6002201020Ch 5 # C000000010Eh 
+        7 # C000092010Ch 9 # 1020Ch 
+      } 
+    2 { 0 # 30Ch 3 # 20914h 4 # 80403h 5 # C0003h 6 # 40000040803h 
+        7 # 3501040Ah 9 # 2010Ch 
+      } 
+    3 { 0 # 8000000010Eh 3 # 3000Ch 6 # 9000002010Ch 9 # 1021Ch 
+      } 
+    4 { 1 # DA0005h 2 # 80014D40803h 3 # 90402h 4 # 4002Bh 
+        6 # 4603000Ch 9 # 7050002000Dh 
+      } 
+    5 { 1 # 57D3000Ch 6 # 90012090006h 7 # 840C0003h 
+        8 # 90600040803h 9 # 52103400Ch 
+      } 
+    6 { 1 # 18D1000Eh 3 # 640A0005h 4 # D0028040803h 5 # 4600480403h 
+        6 # 4002Bh 9 #40907050003000Ch 
+      } 
+    7 { 3 # 5801020Ch 9 # 3000Ch 
+      } 
+    8 { 1 # 37080027h 2 # 680C0003h 3 # 3804010Ah 
+      } 
+  } 
+  { -1 { 3 # A0005h 4 # C0201h 5 # C0003h 6 # C0003h 7 # 60009h 
+      } 
+    0 { 3 # 3000Ch 4 # D0000000906h 5 # 4700840Bh 6 # 5600040Bh 
+        7 # 3800Ch 8 # B0000020409h 
+      } 
+    1 { 2 # C0064000807h 3 # 90402h 4 # 300EC0201h 5 # 4000E0001h 
+        6 # 300EC0003h 7 # 5000Ah 8 # 4501000Eh 
+      } 
+    2 { 1 # 3402000Dh 3 # A0005h 4 # 40004010Ah 5 # 1020Ch 
+      } 
+    3 { 1 # D000001020Ch 3 # 3000Ch 4 # A0005h 5 # C0102h 
+        6 # 60009h 7 # 3100020Dh 9 # E000000020Dh 
+      } 
+    4 { 1 # 80106h 2 # C0003h 3 # 5000Ah 4 # 1201Eh 6 # 1020Ch 
+        7 # 80106h 8 # 2600CC0003h 9 # 60108h 
+      } 
+    5 { 2 # 10200000000020Dh 4 # 2010Dh 6 # 90000080106h 
+        7 # 6704000Bh 9 # 3000Ch 
+      } 
+    6 { 0 # 10000000050Ah 1 # F0000000C03h 2 # 100000000708h 
+        4 # 90006h 5 # C0003h 6 # 4001Bh 9 # 360043000Ch 
+      } 
+    7 { 0 # 110000000906h 1 # 48000609h 2 # 8000000010Eh 
+        4 # 2010Ch 9 # 7403000Ch 
+      } 
+    8 { 1 # 817h 2 # F0000000906h 3 # 80007h 4 # 2705000Ah 
+        8 # 100000000807h 9 # 1040Ah 
+      } 
+  } 
+} 
+
+The main game routine 
+PLAY [98EC] 
+<< FAST SETUP 
+  WHILE 3 FC? 
+  REPEAT 9 FC? 
+    << 'TME' 1 STO+ EDMD 8 FS? 
+      << 1 HP + MHP MIN 'HP' STO 
+      >> IFT 
+    >> IFT 
+    { 
+      << TME 2 MOD 1 >> 
+      << 1 DUP >> 
+      << 1 TME 2 MOD >> 
+    } SPD SIGN 2 + GET EVAL 
+    << 9 FS? 'MATK' IFT 
+    >> IFT 
+    << GETK PMV 9 FS? 7 FS? AND 'PATK' IFT 
+    >> IFT 
+  END CLLCD HP 0 < "You died" 
+  << "Score = " LVL 100 * ->STR + 
+  >> IFTE 1 DISP CLEAN 
+
+The monster gets an attack 
+MATK [457F] 
+<< MNSTR DUP 1 GET -> q 
+  << 5 GET LIST-> 1 SWAP 
+    START 'DAM' SWAP q ATK 
+    NEXT 
+  >> 
+
+The player's attack 
+PATK [39CE] 
+<< 'MDAM' 'WEP' LVL ATK 
+
+Generic attack routine 
+ATK [FDB7] 
+<< 14 / .3 * .5 + RAND > 
+  << ->NUM SWAP EVAL 
+  >> 
+  << DROP2 
+  >> IFTE 
+
+Player gains a level 
+GAINL [E3A5] 
+<< 'LVL' 1 STO+ d4 1 + 'MHP' STO+ d4 1 + 'MSP' STO+ 3500 .05 BEEP 
+   "Attained level" M1 LVL ->STR M2 
+
+Monster regeneration 
+MRGN [6F9E] 
+<< 'MNSTR' 2 DUP2 GET 3 + PUT 0 
+
+Ten sided dice (lots of them) 
+d10 [27CC] 
+<< 10 DRL >> 
+One eight sided die 
+d8 [48CA] 
+<< 1 8 DRL >> 
+
+One four sided die 
+d4 [4ECA] 
+<< 1 4 DRL >> 
+
+Insert a daemon into the daemon queue 
+DAEMON [3E24] 
+<< -> d c 
+  << c 0 =/= 
+    << DMD c d 2 ->LIST 1 ->LIST + 'DMD' STO 
+    >> IFT 
+  >> 
+
+
+Execute any pending daemons 
+EDMD [853] 
+<< DMD SIZE 
+  << DMD LIST-> -> n 
+    << 1 n 
+      START LIST-> DROP 1 - DUP 0 > 
+        << 2 ->LIST >> 
+        << DROP DUP 'SELF' STO EVAL n 1 - 'n' STO 
+        >> IFTE n ROLL 
+      NEXT n ->LIST 
+    >> 'DMD' STO 
+  >> IFT 
+
+Cleanup after the program has run 
+CLEAN [DE14] 
+<< { SELF DMD LKEY MNSTR SPD ARM RNG WEP UIVT OXLOC OYLOC MES1 MES2 DPTH CLVL 
+     IVT LVLS LVL EXPS SP MSP HP MHP YLOC XLOC R L F FDIR TME } PURGE STOF 
+CLMF
+
+Setup and initialise everything at the start of a game --- the long string 
+that is broken over two lines does NOT contain a new-line in reality 
+SETUP [9256] 
+<< RCLF # 8007FF04000042Bh STOF "" M1 10 DUP 
+   'HP' STO 'SP' STO 
+"0'SPD'0'ARM'0'XLOC'0'YLOC'#0' RNG'1'WEP'{}'IVT'1'LVL'0'EXPS' 1'DPTH'1'FDIR' 
+#8'F'#1'L'#2'R'HP'MHP'SP'MSP'{ }'UIVT'0'TME'MAP'LVLS'{}'DMD'0 'SELF'1 21" 
+   STR-> 
+  START STO 
+  NEXT LVLS DPTH GET 'CLVL' STO 
+
+Damage a monster and kill it if necessary 
+MDAM [5103] 
+<< MNSTR 3 GET - DUP 0 > 
+  << "You hit" M2 'MNSTR' 2 DUP2 GET 4 ROLL - DUP 0 > 
+    << PUT >> 
+    << DROP2 9 CF 6 GET 'EXPS' STO+ 
+      WHILE EXPS LN 2 LN / IP LVL > 
+      REPEAT GAINL 
+      END XLOC YLOC DUP2 SGET # FFFF00FFFFFFFFFFh AND SPUT "Killed it" M2 
+    >> IFTE 
+  >> 
+  << DROP 
+  >> IFTE 
+
+Handle the player's input: 
+PMV [1EED] 
+<< { 
+   << XLOC YLOC DUP2 SGET F AND # 0h SAME 
+     << DUP2 'OYLOC' STO 'OXLOC' STO FDIR MOVE DUP2 'YLOC' STO 'XLOC' STO 
+        6 CF MSPCL 
+     >> 
+     << DROP2 1000 .05 BEEP 2 SF 
+     >> IFTE 
+   >> 
+   << { 4 3 1 2 } FDIR GET 'FDIR' STO 1 SF >> 
+   << { 3 4 2 1 } FDIR GET 'FDIR' STO 1 SF >> 
+   << { 2 1 4 3 } FDIR GET 'FDIR' STO 1 SF >> 
+   << "Search" M1 XLOC YLOC DUP2 SGET DUP # F000h AND DUP # 0h =/= 
+      RAND .1 < AND 
+     << SR SR SR SR DUP SRB NOT ROT AND OR # FFFFFFFFFFFF0FFFh AND SPUT 
+        "Found something" 
+     >> 
+     << DROP2 DROP2 "Nothing" 
+     >> IFTE M2 
+   >> 
+   << LVL 12 > 
+     << SP 3 > 
+       << "Cast chill spell" M1 'SP' 4 STO- MNSTR 4 GET 7 4 DRL LVL 4 * + 
+          OVER # 2h AND # 0h =/= 
+         << 2 / IP 
+         >> IFT SWAP # 8h AND # 0h =/= 
+         << 4 / IP 
+         >> IFT MDAM 
+       >> 
+       << "Not enough energy" M1 "for chill spell" M2 
+       >> IFTE 
+     >> 
+     << "Too low level" M1 "for chill spell" M2 
+     >> IFTE 
+   >> 
+   << LVL 4 > 
+     << SP 1 > 
+       << "Electric bolt" M1 'SP' 2 STO- MNSTR 4 GET 3 4 DRL LVL 2 * + 
+          OVER # 4h AND # 0h =/= 
+         << 2 / IP 
+         >> IFT SWAP # 8h AND # 0h =/= 
+         << 8 / IP 
+         >> IFT MDAM 
+       >> 
+       << "Not enough energy" M1 "for electric bolt" M2 
+       >> IFTE 
+     >> 
+     << "Too low level" M1 "for electric bolt" M2 
+     >> IFTE 
+   >> 
+   << LVL 8 > 
+     << SP 2 > 
+       << "Fireball spell" M1 'SP' 3 STO- MNSTR 4 GET 5 4 DRL LVL 3 * + 
+          OVER # 1h AND # 0h =/= 
+         << 2 / IP 
+         >> IFT SWAP # 8h AND # 0h =/= 
+         << 4 / IP 
+         >> IFT MDAM 
+       >> 
+       << "Not enough energy" M1 "for fireball" M2 
+       >> IFTE 
+     >> 
+     << "Too low level" M1 "for fireball" M2 
+     >> IFTE 
+   >> 
+   << SP 0 > 
+     << "Magic missile" M1 'SP' 1 STO- LVL 4 DRL MNSTR 4 GET # 8h 
+        AND # 0h =/= 
+       << DROP 0 
+       >> IFT MDAM 
+     >> 
+     << "Not enough energy" M1 "for magic missile" M2 
+     >> IFTE 
+   >> 
+   << "Heal" M1 SP MHP HP - MIN DUP NEG 'SP' STO+ 'HP' STO+ >> 
+   << "Use which?" IPICK DUP 'IUSE' << DROP >> IFTE 
+   >> IREM 
+   << DPTH 1 + INV RAND > 6 FS? OR 
+     << "Could not escape" M1 >> 
+     << "Got away" M1 6 SF 9 CF OXLOC OYLOC DUP2 
+        'YLOC' STO 'XLOC' STO MSPCL 
+     >> IFTE 
+   >> 
+   << "Press . to continue" IPICK DROP >> 
+   << XLOC YLOC SGET # 10h AND # 0h SAME 
+     << "Cannot ascend" M1 >> 
+     << 'DPTH' 1 STO- LVLS DPTH GET 'CLVL' STO 6 SF XLOC YLOC MSPCL 
+     >> IFTE 
+   >> 
+   << XLOC YLOC SGET # 20h AND # 0h SAME 
+     << "Cannot descend" M1 >> 
+     << 'DPTH' 1 STO+ LVLS DPTH GET 'CLVL' STO 6 SF XLOC YLOC MSPCL 
+     >> IFTE 
+   >> 
+   << XLOC YLOC SGET # FF000000h AND -> it 
+     << it # 0h SAME 
+       << "Nothing to get" M1 >> 
+       << IVT SIZE 25 > 
+         << "Carrying too much" M1 >> 
+         << "Taken stored" M1 "as item " IVT LITEMS it RRB RRB RRB 
+            SWAP OVER # Fh AND B->R GET SWAP RR RR RR RR # Fh AND 
+            B->R GET 1 ->LIST + DUP 'IVT' STO SIZE 64 + CHR + M2 
+            XLOC YLOC DUP2 SGET # FFFFFFFF00FFFFFFh AND SPUT 
+         >> IFTE 
+       >> IFTE 
+     >> 
+   >> 
+   << XLOC YLOC DUP2 SGET DUP # FF000000h AND # 0h =/= 
+     << DROP2 DROP "Something here" M1 "already" M2 >> 
+     << "Drop which?" IPICK -> p 
+       << p 0 == 
+         << DROP2 DROP >> 
+         << p IDGET 1 GET OR SPUT 
+         >> IFTE 
+       >> 
+     >> IFTE 
+   >> 
+   << 
+   >> 
+   << 1 HP + MHP MIN 'HP' STO 1 SP + MSP MIN 'SP' STO "Resting" M1 >> 
+   << SP 0 > 
+     << 5 FC? 
+       << "Facing " { "north" "south" "east" "west" } FDIR GET + M1 
+          "N=" YLOC ->STR + " E=" + XLOC ->STR + " D=" + DPTH ->STR + 
+          M2 'SP' 1 STO- 
+       >> 
+       << "You are really" M1 "lost" M2 
+       >> IFTE 
+     >> 
+     << "No energy for" M1 "location spell" M2 
+     >> IFTE 
+   >> 
+   << 6 FS? 
+     << "Cannot backup" M1 >> 
+     << 6 SF OXLOC OYLOC DUP2 'YLOC' STO 'XLOC' STO MSPCL 
+     >> IFTE 
+   >> 
+   << 3 SF 2 SF >> 
+   } 9 FS? 
+      "?????CEFMHU?'?????0???+" 
+      "8465S????HUR?IAD*/0.L2+" 
+  IFTE ROT POS 
+  IF DUP 
+  THEN FAST GET EVAL 1 FS?C 
+    << { # 8h # 4h # 2h # 1h } FDIR GET 'F' STO { # 1h # 2h # 8h # 4h } 
+       FDIR GET 'L' STO { # 2h # 1h # 4h # 8h } FDIR GET 'R' STO 
+    >> IFT 2 FC?C 
+    << CLLCD MES1 1 DISP MES2 2 DISP 9 FC? 'P3D' 'MDRW' IFTE PSTAT "" DUP 
+       'MES1' STO 'MES2' STO 
+    >> IFT 
+  ELSE DROP2 3000 .05 BEEP 
+  END 
+
+Special stuff during moves 
+MSPCL [9ADF] 
+<< SGET DUP # F00000h AND DUP # 0h SAME 
+  << DROP >> 
+  << RRB RRB RR RR RR RR B->R 
+     { 
+       "Light mist in air" "Dart" "Crossbow bolt" "Lightning bolt" 
+       "Blast of fire" "Heavy mist here" "Acid rain" "Moving feeling" 
+       "Falling feeling" "Tossing sensation" "Musty odour here" 
+       "Very cold here" "Eerie glow around" "Pitch black here" 
+       "Thick fog around" } 
+     SWAP GET M1 
+  >> IFTE DUP # FF00000000h AND DUP # 0h SAME 
+  << DROP >> 
+  << RAND .5 < 
+    << DROP >> 
+    << RRB RRB RRB RRB B->R -> q 
+      << q 16 < 
+        << { UP DWN 
+             << 4 CF >> << 4 SF >> << 5 SF >> << 5 CF >> << 6 SF >> 
+           } q GET EVAL 
+        >> 
+        << q 4 SQ / IP q 4 SQ MOD DRL DAM 
+        >> IFTE 
+      >> 
+    >> IFTE 
+  >> IFTE DUP # FFFF000000000000h AND DUP # 0h =/= 
+  << RLB # FFh DUP2 AND B->R 'XLOC' STO SWAP RLB AND B->R 'YLOC' STO 
+     DROP 6 SF 
+  >> 
+  << DROP DUP # FF0000000000h AND DUP # 0h SAME 
+    << DROP >> 
+    << RLB RLB RLB B->R MLST SWAP GET 2 DUP2 GET ->NUM PUT 'MNSTR' STO 9 SF 
+    >> IFTE # FF000000h AND DUP # 0h SAME 
+    << DROP >> 
+    << RRB RRB RRB # Fh AND B->R 
+     { "A wand" "A ring" "A vial" "A scroll" "A weapon" "Some armour" 
+       "Some food" "A gemstone" } 
+      SWAP GET M2 
+    >> IFTE 
+  >> IFTE 
+
+Player removes an item 
+IREM [EC63] 
+<< UIVT SIZE 
+  << IVT SIZE 25 > 
+    << "Carrying too much" M1 >> 
+    << IVT UIVT 'IVT' STO "Remove which item?" IPICK DUP 
+      << IDGET DUP 'SELF' STO 1 ->LIST + SELF 1 GET RRB RRB RRB # Fh AND 
+         B->R 
+        { 
+          << SELF 5 GET EVAL # 0h 'RNG' >> 
+          << 1 'WEP' >> 
+          << 0 'ARM' >> 
+        } { 2 5 6 } ROT POS GET EVAL STO 
+      >> 
+      << DROP 
+      >> IFTE IVT 'UIVT' STO 'IVT' STO 
+    >> IFTE 
+  >> 
+  << "Nill being used" M1 
+  >> IFTE 
+
+Player uses an item 
+IUSE [DE1E] 
+<< IDGET DUP 'SELF' STO 1 GET RRB RRB RRB # Fh AND B->R 
+  { << SELF 1 ->LIST IVT + 'IVT' STO >> 
+    << SELF 4 GET EVAL >> 
+    << >> 
+  } 
+  { << SELF 5 GET RAND > 
+      'SELF' 
+      << LWAND 1 GET 
+      >> IFTE 1 ->LIST IVT + 'IVT' STO 2 
+    >> 
+    << RNG # 0h SAME 
+      << SELF 1 GET 'RNG' STO SELF 1 ->LIST UIVT + 'UIVT' STO 2 >> 
+      << "Already using one" M1 1 
+      >> IFTE 
+    >> 
+    << 3 6 DRL SELF 5 GET DAEMON 2 >> 
+    << 2 >> 
+    << WEP 1 SAME 
+      << SELF 4 GET 'WEP' STO SELF 1 ->LIST UIVT + 'UIVT' STO 3 >> 
+      << "Armed already" M1 1 
+      >> IFTE 
+    >> 
+    << ARM 
+      << "Already armoured" M1 1 >> 
+      << SELF 4 GET 'ARM' STO SELF 1 ->LIST UIVT + 'UIVT' STO 3 
+      >> IFTE 
+    >> 
+    << SELF DUP 4 GET HP + MHP MIN 'HP' STO 5 GET SP + MSP MIN 'SP' STO 3 >> 
+    << "Cannot use gems" M1 1 >> 
+  } ROT GET EVAL GET EVAL 
+
+Get a key from the player with lots of bells and whistles 
+GETK [B22D] 
+<< # 1F866h SYSEVAL # 11CAh SYSEVAL 7 CF 11 FS?C 
+  << DUP 'LKEY' STO 
+  >> IFT -> tme 
+  << 
+    DO 
+      IF KEY 
+      THEN 11 SF 
+      ELSE 
+        IF # 11CAh SYSEVAL LKEY - B->R 491520 > 
+        THEN # 18E58h SYSEVAL # 11CAh SYSEVAL DUP 'LKEY' STO 'tme' STO 
+        END 
+      END 
+    UNTIL 11 FS? # 11CAh SYSEVAL tme - B->R 24576 > OR 
+    END 11 FC? 9 FS? "0" "." IFTE IFT DUP "0" SAME 
+    << 7 SF 
+    >> IFT # 1F859h SYSEVAL 
+  >> 
+
+Destructively get an item from the player's inventory (nice huh?) 
+IDGET [752E] 
+<< -> n 
+  << IVT LIST-> -> q 
+    << q n - 1 + ROLL q ROLLD q 1 - ->LIST 'IVT' STO 
+    >> 
+  >> 
+
+Display the player's inventory on the screen and allow a choice 
+IPICK [BB48] 
+<< 1 -> p 
+  << IVT SIZE 0 == 
+    << DROP "You are carrying" M1 "nothing" M2 0 >> 
+    << CLLCD 4 DISP 
+      DO 1 p p 2 + IVT SIZE MIN 
+        FOR j DUP 10 * # 71A9h + SYSEVAL # 1A6C2h SYSEVAL 
+              IVT j GET 2 GET EVAL + OVER DISP 1 + 
+        NEXT DROP 
+        { << 0 1 >> 
+          << 0 1 >> 
+          << p 1 >> 
+          << p 1 + 1 >> 
+          << p 2 + 1 >> 
+          << p 1 + IVT SIZE 2 - MIN 1 MAX 'p' STO 0 >> 
+          << p 1 - 1 MAX 'p' STO 0 >> 
+        } 
+        { "0" "." "1" "2" "3" "DOWN" "UP" } GETK POS DUP 
+        << GET EVAL >> 
+        << DROP2 0 
+        >> IFTE 
+      UNTIL 
+      END DUP IVT SIZE > 
+      << DROP 0 
+      >> IFT 
+    >> IFTE 
+  >> 
+
+Apply some damage to the player and set a flag if dead 
+DAM [9366] 
+<< ARM - -> d 
+  << d 0 > 
+    << "ouch" 'HP' d STO- HP 0 < 
+      << 3 SF " - died" + 
+      >> IFT M2 
+    >> IFT 
+  >> 
+
+Roll n dice of m sides 
+DRL [5BA9] 
+<< 0 1 4 PICK 
+  START OVER RAND * IP + 
+  NEXT SWAP DROP + 
+
+Get a value from a sparse matrix: 
+SGET [C038] 
+<< -> x y 
+  << CLVL x POS 
+    IF DUP 
+    THEN 1 + CLVL SWAP GET DUP 
+      IF y POS DUP 
+      THEN 1 + GET 
+      ELSE SWAP DROP 
+      END 
+    END 
+  >> 
+
+To put a value into such a matrix (and write through to main store): 
+SPUT [E620] 
+<< 'LVLS' DPTH 0 PUT -> x y v 
+  << CLVL x POS 
+    IF DUP 
+    THEN 1 + -> p 
+      << CLVL p GET DUP y POS 
+        IF DUP 
+        THEN 1 + v PUT 
+        ELSE DROP y + v + 
+        END 'CLVL' p ROT PUT 
+      >> 
+    ELSE DROP CLVL x + y v 2 ->LIST 1 ->LIST + 'CLVL' STO 
+    END 
+  >> 'LVLS' DPTH CLVL PUT 
+
+MDRW [5360] 
+<< MNSTR 7 GET "Fight" 3 DISP 4 DISP 
+
+The next two put stuff into the text display sections of the screen.  The 
+string of spaces at the start of each is 6 long. 
+M1 [D147] 
+<< "      " SWAP + 'MES1' STO "" 'MES2' STO 
+
+M2 [52B9] 
+<< "      " SWAP + 'MES2' STO 
+
+Display the bar chart stuff 
+PSTAT [E48F] 
+<< 94 DUP SP * MSP / 1 MAX MIN 94 DUP HP * MHP / 1 MAX MIN # C1DDh SYSEVAL 
+   STATUS 
+
+Move an x,y coord in a given direction 
+MOVE [CD0] 
+<< { 
+   << 1 + 
+   >> 
+   << 1 - 
+   >> 
+   << SWAP 1 + SWAP 
+   >> 
+   << SWAP 1 - SWAP 
+   >> } 
+  SWAP GET EVAL 
+
+Do a 3D plot from the current position 
+P3D [77A5] 
+<< 
+  IF XLOC YLOC DUP2 SGET 1 DRW 4 FS? AND 
+  THEN 
+    IF FDIR MOVE DUP2 SGET 2 DRW 
+    THEN FDIR MOVE SGET 3 DRW DROP 
+    ELSE DROP2 
+    END 
+  ELSE DROP2 
+  END 
+
+Draw whatever at the given distance 
+DRW [345E] 
+<< -> v s 
+  << 
+    IF v 0 == 
+    THEN # FFFFFh 'v' STO 
+    END v # 10h AND # 0h =/= 
+    << { T1 T2 T3 } s GET EVAL >> 
+    IFT v # 20h AND # 0h =/= 
+    << { B1 B2 B3 } s GET EVAL >> 
+    IFT L DUP v AND # 0h =/= 
+    << { LP1 LP2 LP3 } s GET EVAL >> 
+    IFT SLB DUP v AND # 0h =/= 
+    << { LD1 LD2 LD3 } s GET EVAL >> 
+    IFT SLB v AND # 0h =/= 
+    << { LH1 LH2 LH3 } s GET EVAL >> 
+    IFT R DUP v AND # 0h =/= 
+    << { RP1 RP2 RP3 } s GET EVAL >> 
+    IFT SLB DUP v AND # 0h =/= 
+    << { RD1 RD2 RD3 } s GET EVAL >> 
+    IFT SLB v AND # 0h =/= 
+    << { RH1 RH2 RH3 } s GET EVAL >> 
+    IFT v # FF00000h AND # 0h =/= 
+    << { OB1 OB2 << >> } s GET EVAL >> 
+    IFT 
+    IF v F AND # 0h =/= 
+    THEN { FP1 FP2 FP3 } s GET EVAL 0 
+    ELSE 
+      IF v F SLB AND # 0h =/= 
+      THEN { FD1 FD2 FD3 } s GET EVAL 0 
+      ELSE 1 
+      END 
+    END 
+  >> 
+
+------------------------------ ------------------------------ ---------------- 
+The next lot of programs are the things that draw various different
+pictures on the screen, they should be entered as they are below and
+then processed by the routine following them, this changes them into
+faster versions with lots and lots of system objects ;-)
+LD1 [4F00] 
+<< 
+  5 0 0 LneF 4 0 3 LneF 23 3 6 LneV 4 27 PIX 
+
+
+LD2 [4E9E] 
+<< 
+  5 26 PIX 16 6 10 LneV 6 5 5 LneF 5 6 9 LneF 8 10 14 LneV 
+
+LD3 [5217] 
+<< 
+  11 20 PIX 5 12 15 LneV 4 11 11 LneF 3 13 16 LneV 14 17 PIX 
+
+RD1 [8785] 
+<< 
+  5 27 4 LneR 4 28 6 LneR 23 28 6 LneV 27 27 PIX 
+
+RD2 [E01B] 
+<< 
+  26 26 PIX 16 25 10 LneV 6 21 10 LneR 5 21 13 LneR 8 21 14 LneV 
+
+RD3 [3768] 
+<< 
+  20 20 PIX 5 19 15 LneV 4 17 14 LneR 3 18 16 LneV 17 17 PIX 
+
+LP1 [CFAB] 
+<< 
+  5 0 0 LneF 5 0 31 LneR 
+
+LP2 [80BB] 
+<< 
+  6 5 5 LneF 6 5 26 LneR 
+
+LP3 [C730] 
+<< 
+  4 11 11 LneF 4 11 20 LneR 
+
+RP1 [3AFD] 
+<< 
+  5 27 4 LneR 5 27 27 LneF 
+
+RP2 [60A4] 
+<< 
+  6 21 10 LneR 6 21 21 LneF 
+
+RP3 [F024] 
+<< 
+  4 17 14 LneR 4 17 17 LneF 
+
+T1 [B684] 
+<< 
+  3 3 0 LneF 3 26 2 LneR 20 6 3 LneH 
+
+T2 [761F] 
+<< 
+  14 9 6 LneH 3 10 7 LneF 3 19 9 LneR 6 13 10 LneH 
+
+T3 [E356] 
+<< 
+  2 15 12 LneH 
+
+B1 [B2A5] 
+<< 
+  3 3 31 LneR 3 26 29 LneF 20 6 28 LneH 
+
+B2 [4B26] 
+<< 
+  14 9 25 LneH 3 10 24 LneR 3 19 22 LneF 6 13 21 LneH 
+
+B3 [E856] 
+<< 
+  2 15 19 LneH 
+
+LH1 [7757] 
+<< 
+  3 0 3 LneH 3 0 28 LneH 26 3 3 LneV 4 4 PIX 4 27 PIX 
+
+LH2 [7240] 
+<< 
+  5 5 PIX 5 26 PIX 20 6 6 LneV 3 7 10 LneH 3 7 21 LneH 12 10 10 LneV 
+
+LH3 [9478] 
+<< 
+  4 11 20 LneR 6 12 13 LneV 4 11 11 LneF 4 13 14 LneV 
+
+RH1 [F14E] 
+<< 
+  3 29 3 LneH 3 29 28 LneH 26 28 3 LneV 27 4 PIX 27 27 PIX 
+
+RH2 [14B5] 
+<< 
+  26 5 PIX 26 26 PIX 20 25 6 LneV 3 22 10 LneH 3 22 21 LneH 12 21 10 LneV 
+
+RH3 [CBC1] 
+<< 
+  4 17 14 LneR 6 19 13 LneV 4 17 17 LneF 4 18 14 LneV 
+
+FP3 [4881] 
+<< 
+  2 15 15 LneV 2 16 15 LneV 
+
+FP2 [3E7B] 
+<< 
+  10 11 11 LneV 10 20 11 LneV 8 12 11 LneH 8 12 20 LneH 
+
+FP1 [DF1D] 
+<< 
+  22 5 5 LneV 22 26 5 LneV 20 6 5 LneH 20 6 26 LneH 
+
+FD3 [282] 
+'FP3' 
+FD2 [7A8C] 
+<< 
+  10 11 11 LneV 10 20 11 LneV 8 12 11 LneH 2 12 20 LneH 
+  7 14 14 LneV 2 15 14 LneH 7 17 14 LneV 2 18 20 LneH 
+
+
+FD1 [44FA] 
+<< 
+  22 5 5 LneV 22 26 5 LneV 20 6 5 LneH 5 6 26 LneH 
+  15 11 12 LneV 8 12 12 LneH 15 20 12 LneV 5 21 26 LneH 
+
+OB1 [9C22] 
+<< 
+  4 14 DUP2 31 LneH 30 LneH 
+
+OB2 [E456] 
+<< 
+  2 15 23 LneH 
+
+STATUS [A241] 
+<< 
+  5 33 27 LneV 5 35 27 LneV 34 29 PIX 5 37 27 LneV 3 39 27 LneV 38 27 PIX 
+  38 29 PIX 41 28 PIX 41 30 PIX 43 27 PIX 43 31 PIX 43 DUP2 28 LneH DUP2 
+  29 LneH 30 LneH 3 33 21 LneH 3 33 25 LneH 3 33 22 LneF 5 37 21 LneV 
+  3 39 21 LneV 38 21 PIX 38 23 PIX 41 22 PIX 41 24 PIX 43 21 PIX 43 25 PIX 
+  43 DUP2 22 LneH DUP2 23 LneH 24 LneH 
+
+SYSIFY [7A8D] 
+<< 
+  { LD1 LD2 LD3 RD1 RD2 RD3 LP1 LP2 LP3 RP1 RP2 RP3 T1 T2 T3 B1 
+    B2 B3 LH1 LH2 LH3 RH1 RH2 RH3 FP3 FP2 FP1 FD2 FD1 OB1 OB2 STATUS } 
+  LIST-> 1 SWAP 
+  START -> elem 
+    << 
+      elem RCL #2A96h CHT { } + elems RCL #2C67h CHT DROP 2 OVER 
+              SIZE 1 - SUB 1 OVER SIZE 
+      FOR j j DUP2 GET 
+        IF DUP TYPE 0 SAME 
+        THEN #C53Bh SYSEVAL PUT 
+        ELSE DROP2 
+        END 
+      NEXT #2C67h CHT elem STO 
+    >> 
+  NEXT 
+>>        /* end of to be fixed crap */ 
+
+Make sure that everything is correct since the next step is NOT undoable.
+Run SYSIFY now and it will munge the previous graphics programs into
+something that will actually run (i.e. a long list of sysevals).
+You can now purge SYSIFY itself since it will no longer be necessary.
+Running SYSIFY should take approximately 60 seconds on a normal speed 28S
+(with nothing else in memory -- guess who had a few MEMORY LOSTS while
+designing this ;-)
+
+This should leave you with an awful lot of rather small programs that are
+very full of system objects.  They are the graphics output routines for
+the main program and they are quite fast (even without FAST being used),
+it would be possible to improve speed a little more by in-lining the
+machine code objects that are used to draw lines but I didn't think
+the extra speed was worth the effort involved.  Basically, all the
+numbers in the program have been converted into short (20 bit) integers
+(the HP28S rom has a table of short ints less than 44, and since all the
+shorts in the graphics programs are smaller than that they are held very
+efficiently, the table starts at #071A9 and is listed in Eric Toonen
+invaluable SYSEVAL list; each entry in the table is 10 nibbles long).
+
+The reason I've used such a warped method of drawing the graphics is
+mostly speed.  I tried using formulas to draw everything and it was
+SLOOOOOW.  I tried several other courses of action and eventually came
+up with what is left since everything else I tried was either too slow
+or too memory hungry.
+
+Now for all those wonderful line drawing primatives that I've used
+above...
+MPIX [BF98] 
+<< # 1ADFEh # 71BDh SYSEVAL # 3E9D7h SYSEVAL 'PIX' STO 
+
+
+Run MPIX and you should get PIX (which is a single system object), you
+can now purge MPIX.  Don't run PIX by hand (unless you really know what
+you're doing, a Memory Lost is highly likely otherwise)
+MLV [chk=D10C, size=88] input without blanks/newlines and use capitals 
+                        instead of lower case throughout. 
+"8f72f401008f72f401018f72f408f 18050d6d71118fe6ea10e081580110 e410 
+0cf8af1e8f8b050142164808c" 
+
+MLH [chk=9324, size=88] input as above 
+"8f72f401008f72f401018f72f408f 18050d6d71118fe6ea10e081580111 e410" 
+1cf8af4e8f8b050142164808c" 
+
+MLF [chk=BCD3, size=96] input as before 
+"8f72f401008f72f401018f72f408f 18050d6d71118fe6ea10e081580110 e410" 
+0111e4101cf8afcd8f8b0501421648 08c" 
+
+MLR [chk=BB63, size=96] input as usual 
+"8f72f401008f72f401018f72f408f 18050d6d71118fe6ea10e081580110 cc10 
+0111e4101cf8afcd8f8b0501421648 08c" 
+
+for each of these, you should run them through your favourite assembler 
+and then change them into an inline machine code object. 
+(I use HEXIFY since it is available in machine code form (fast), thus 
+        MLV "" + 
+        HEXIFY 
+        ->IMC 
+
+ Both HEXIFY and ->IMC are available in Alonzo's Processor notes. 
+ (and are listed at the end of this message) 
+) 
+
+From each of these you should get a SYSTEM OBJECT, store this object into 
+a variable whose name comes from the right column of the following table: 
+
+base string     |       variable 
+----------------|------------- -- 
+MLV             |       LneV 
+MLH             |       LneH 
+MLF             |       LneF 
+MLR             |       LneR 
+
+For those really curious persons who absolutely must know what the above 
+object really are/do, I've included the full assembly code listings for them
+including all the (dupilcated) comments. 
+
+------------------------------ ------------------------------ 
+------------------
+; 
+; this routine will draw a vertical line 
+; 
+; call it by passing the following args: 
+; length Xstart Ystart LneV 
+; 
+; The three args should be short integers 
+; 
+; it makes NO attempts to verify that the line is on the screen and havoc may 
+; result if an attempt is made to draw a line off the screen. 
+; 
+; r0 contains the Y coord 
+; r1 contains the X coord 
+; D contains the length 
+        call.a  0x04f27         ; get Ystart from stack 
+        move.w  a, r0           ; save it away for later 
+        call.a  0x04f27         ; get Xstart 
+        move.w  a, r1 
+        call.a  0x04f27         ; get the length 
+        call.a  0x05081         ; save RPL registers 
+        move.a  a, c 
+        move.a  c, d            ; put the length count in d 
+loopback: 
+        move.w  r1, a           ; setup args for the next call 
+        call.a  0x1ae6e         ; this routine takes X in a and Y in R0 
+                                ; and returns a nibble pointer in d0 
+                                ; that is the screen address to be changed, 
+                                ; a bit mask in B for the pixel to be changed 
+                                ; and A contains the value currently in the 
+                                ; nibble pointed at by d0 
+        or.p    b, a            ; set the bit in the nibble and 
+        move.1  a, @d0          ; and set the pixel on the screen 
+        move.w  r0, a 
+        inc.a   a               ; increment the Y coord 
+        move.w  a, r0 
+        dec.a   d               ; reduce the length to go 
+        brnz.a  d, loopback     ; keep plotting pixels until finished 
+        call.a  0x050B8         ; restore RPL registers 
+        move.a  @d0, a          ; \ 
+        add     5, d0           ;  > continue RPL 
+        jump    @a              ; / 
+------------------------------ ------------------------------ 
+------------------
+; 
+; this routine will draw a horizontal line 
+; 
+; call it by passing the following args: 
+; length Xstart Ystart LneV 
+; 
+; The three args should be short integers 
+; 
+; it makes NO attempts to verify that the line is on the screen and havoc may 
+; result if an attempt is made to draw a line off the screen. 
+; 
+; r0 contains the Y coord 
+; r1 contains the X coord 
+; D contains the length 
+        call.a  0x04f27         ; get Ystart from stack 
+        move.w  a, r0           ; save it away for later 
+        call.a  0x04f27         ; get Xstart 
+        move.w  a, r1 
+        call.a  0x04f27         ; get the length 
+        call.a  0x05081         ; save RPL registers 
+        move.a  a, c 
+        move.a  c, d            ; put the length count in d 
+        move.w  r1, a           ; setup args for the next call 
+loopback: 
+        call.a  0x1ae6e         ; this routine takes X in a and Y in R0 
+                                ; and returns a nibble pointer in d0 
+                                ; that is the screen address to be changed, 
+                                ; a bit mask in B for the pixel to be changed 
+                                ; and A contains the value currently in the 
+                                ; nibble pointed at by d0 
+        or.p    b, a            ; set the bit in the nibble and 
+        move.1  a, @d0          ; and set the pixel on the screen 
+        move.w  r1, a 
+        inc.a   a               ; increment the X coord 
+        move.w  a, r1 
+        dec.a   d               ; reduce the length to go 
+        brnz.a  d, loopback     ; keep plotting pixels until finished 
+        call.a  0x050B8         ; restore RPL registers 
+        move.a  @d0, a          ; \ 
+        add     5, d0           ;  > continue RPL 
+        jump    @a              ; / 
+------------------------------ ------------------------------ 
+------------------
+; 
+; this routine will draw a 45 degree rising line 
+; 
+; call it by passing the following args: 
+; length Xstart Ystart LneV 
+; 
+; The three args should be short integers 
+; 
+; it makes NO attempts to verify that the line is on the screen and havoc may 
+; result if an attempt is made to draw a line off the screen. 
+; 
+; r0 contains the Y coord 
+; r1 contains the X coord 
+; D contains the length 
+        call.a  0x04f27         ; get Ystart from stack 
+        move.w  a, r0           ; save it away for later 
+        call.a  0x04f27         ; get Xstart 
+        move.w  a, r1 
+        call.a  0x04f27         ; get the length 
+        call.a  0x05081         ; save RPL registers 
+        move.a  a, c 
+        move.a  c, d            ; put the length count in d 
+        move.w  r1, a           ; setup args for the next call 
+loopback: 
+        call.a  0x1ae6e         ; this routine takes X in a and Y in R0 
+                                ; and returns a nibble pointer in d0 
+                                ; that is the screen address to be changed, 
+                                ; a bit mask in B for the pixel to be changed 
+                                ; and A contains the value currently in the 
+                                ; nibble pointed at by d0 
+        or.p    b, a            ; set the bit in the nibble and 
+        move.1  a, @d0          ; and set the pixel on the screen 
+        move.w  r0, a 
+        dec.a   a               ; decrement the Y coord 
+        move.w  a, r0 
+        move.w  r1, a 
+        inc.a   a               ; increment the X coord 
+        move.w  a, r1 
+        dec.a   d               ; reduce the length to go 
+        brnz.a  d, loopback     ; keep plotting pixels until finished 
+        call.a  0x050B8         ; restore RPL registers 
+        move.a  @d0, a          ; \ 
+        add     5, d0           ;  > continue RPL 
+        jump    @a              ; / 
+------------------------------ ------------------------------ 
+------------------
+; 
+; this routine will draw a 45 degree falling line 
+; 
+; call it by passing the following args: 
+; length Xstart Ystart LneV 
+; 
+; The three args should be short integers 
+; 
+; it makes NO attempts to verify that the line is on the screen and havoc may 
+; result if an attempt is made to draw a line off the screen. 
+; 
+; r0 contains the Y coord 
+; r1 contains the X coord 
+; D contains the length 
+        call.a  0x04f27         ; get Ystart from stack 
+        move.w  a, r0           ; save it away for later 
+        call.a  0x04f27         ; get Xstart 
+        move.w  a, r1 
+        call.a  0x04f27         ; get the length 
+        call.a  0x05081         ; save RPL registers 
+        move.a  a, c 
+        move.a  c, d            ; put the length count in d 
+        move.w  r1, a           ; setup args for the next call 
+loopback: 
+        call.a  0x1ae6e         ; this routine takes X in a and Y in R0 
+                                ; and returns a nibble pointer in d0 
+                                ; that is the screen address to be changed, 
+                                ; a bit mask in B for the pixel to be changed 
+                                ; and A contains the value currently in the 
+                                ; nibble pointed at by d0 
+        or.p    b, a            ; set the bit in the nibble and 
+        move.1  a, @d0          ; and set the pixel on the screen 
+        move.w  r0, a 
+        inc.a   a               ; increment the Y coord 
+        move.w  a, r0 
+        move.w  r1, a 
+        inc.a   a               ; increment the X coord 
+        move.w  a, r1 
+        dec.a   d               ; reduce the length to go 
+        brnz.a  d, loopback     ; keep plotting pixels until finished 
+        call.a  0x050B8         ; restore RPL registers 
+        move.a  @d0, a          ; \ 
+        add     5, d0           ;  > continue RPL 
+        jump    @a              ; / 
+------------------------------ ------------------------------ 
+------------------
+->IMC [8B09] 
+<< 
+        #2C96h CHT 
+
+
+CHT comes from the following program: 
+MCHT [8B0C] 
+<< 
+   "143132169146132174E7143132144 132142164808C0DFFC" 
+   HEXIFY 
+   HOME 'CHT' DUP PURGE STO 
+   'CHT' RCL #2C96h 
+   #CFFFAh  SYSEVAL DROP 
+
+and HEXIFY: there is a pure machine code version of this which is
+much faster.
+HEXIFY [6AC9] 
+<< "" SWAP 1 OVER SIZE 
+FOR j 
+        "#" OVER j 1 + DUP SUB + OVER j j SUB + "h" + 
+        STR-> B->R CHR ROT SWAP + SWAP 2 
+STEP DROP 
+
+
+FAST is the usual clock speed up program.
+
+
