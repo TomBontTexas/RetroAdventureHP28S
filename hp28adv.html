@@ -149,6 +149,13 @@
   .ab:hover:not(:disabled) { box-shadow: 0 0 0 1px #000, 0 0 0 2px #e8b84a, 0 0 8px rgba(255, 190, 60, .6); filter: brightness(1.15); }
   .ab:active:not(:disabled) { transform: scale(.92); }
   .ab:disabled { filter: grayscale(1) brightness(.45); cursor: default; }
+  .grip { flex: none; width: 12px; margin-right: -4px; color: #6a6258; font-size: 18px; line-height: 1; cursor: grab;
+    touch-action: none; user-select: none; text-align: center; }
+  .grip:hover { color: var(--accent); }
+  .irow.dragging { opacity: .45; }
+  .irow.drop-before { box-shadow: inset 0 3px 0 var(--accent); }
+  .irow.drop-after { box-shadow: inset 0 -3px 0 var(--accent); }
+  body.reordering, body.reordering * { cursor: grabbing !important; }
   .invempty { color: var(--muted); font-style: italic; font-size: 14px; padding: 4px; }
   .picking .irow[data-pick] { cursor: pointer; background: #2f2c29; margin-bottom: 2px; }
   .picking .irow[data-pick]:hover { background: #3e3a35; outline: 1px solid var(--accent); }
@@ -157,6 +164,7 @@
   .pickhint:empty { display: none; }
   .panel h2 { flex: none; }
   #map { flex: 1 1 0; width: 100%; min-height: 150px; background: #16140f; border: 1px solid #3a3226; border-radius: 6px; }
+  .mappos { text-transform: none; letter-spacing: 0; color: var(--text); font-weight: 400; margin-left: 6px; }
   .maptabs { float: right; text-transform: none; letter-spacing: 0; }
   .maptabs button { font: 600 11px system-ui, sans-serif; background: #34302a; color: var(--muted); border: 1px solid #4a443c;
     border-radius: 4px; padding: 1px 7px; margin-left: 4px; cursor: pointer; }
@@ -243,8 +251,7 @@
             <button class="k" data-key="D"><b>D</b><small>Descend</small></button>
             <button class="k" data-key="S"><b>S</b><small>Search</small></button>
             <button class="k" data-key="."><b>.</b><small>Rest</small></button>
-            <button class="k" data-key="L"><b>L</b><small>Locate</small></button>
-            <button class="k" data-key="0" id="key0"><b>0</b><small>Redraw</small></button>
+            <button class="k" data-key="0" id="key0"><b>0</b><small>Attack</small></button>
             <button class="k" data-key="+"><b>+</b><small>Quit</small></button>
           </div>
           <div class="row">
@@ -282,13 +289,15 @@
         <h2>Messages</h2>
         <div class="log" id="log"></div>
         <div class="mapbox">
-          <h2>Map <span class="maptabs" id="mapTabs"></span></h2>
+          <h2>Map <span id="mapPos" class="mappos"></span><span class="maptabs" id="mapTabs"></span></h2>
           <canvas id="map" aria-label="Map of the squares you have visited"></canvas>
           <div class="legend">
             <span><i class="lg-path"></i>Your path</span>
             <span><i class="lg-door"></i>Door</span>
             <span><b style="color:#7ad85a">&#9650;</b>Ascend</span>
             <span><b style="color:#ff9a3a">&#9660;</b>Descend</span>
+            <span><b style="color:#ffe9b0">&#9654;</b>One-way door</span>
+            <span><b style="color:#c77dff">&#10044;</b>Teleport</span>
             <span><b style="color:#ff5a4a">&#10148;</b>You</span>
           </div>
         </div>
@@ -329,11 +338,11 @@
       <tr><td><kbd>4</kbd> <kbd>&larr;</kbd> / <kbd>6</kbd> <kbd>&rarr;</kbd></td><td>Exploring</td><td>Turn left / right</td></tr>
       <tr><td><kbd>5</kbd></td><td>Exploring</td><td>About face</td></tr>
       <tr><td><kbd>2</kbd> <kbd>&darr;</kbd></td><td>Exploring</td><td>Go back one step (only right after moving forward)</td></tr>
-      <tr><td><kbd>0</kbd> <kbd>Space</kbd></td><td>Any</td><td>Redraw; in a fight, attack with your weapon</td></tr>
-      <tr><td><kbd>.</kbd></td><td>Exploring</td><td>Rest (regain 1 HP and 1 SP)</td></tr>
+      <tr><td><kbd>0</kbd> <kbd>Space</kbd></td><td>Fighting</td><td>Attack with your weapon</td></tr>
+      <tr><td><kbd>.</kbd></td><td>Exploring</td><td>Rest: regain 1 HP and 1 SP (hold the key to rest several turns)</td></tr>
       <tr><td><kbd>*</kbd> / <kbd>/</kbd></td><td>Exploring</td><td>Get / drop an item</td></tr>
       <tr><td><kbd>A</kbd> / <kbd>D</kbd></td><td>Exploring</td><td>Ascend / descend through a hole in the ceiling / floor</td></tr>
-      <tr><td><kbd>S</kbd></td><td>Exploring</td><td>Search for secret doors</td></tr>
+      <tr><td><kbd>S</kbd></td><td>Exploring</td><td>Search for secret doors on your square (20% chance per try with your light on, 10% in the dark)</td></tr>
       <tr><td><kbd>U</kbd></td><td>Any</td><td>Use an item from your pack (wield, wear, drink, read, eat, zap)</td></tr>
       <tr><td><kbd>R</kbd></td><td>Exploring</td><td>Remove armour, weapon or ring</td></tr>
       <tr><td><kbd>I</kbd></td><td>Exploring</td><td>Look at your inventory</td></tr>
@@ -342,7 +351,7 @@
       <tr><td><kbd>F</kbd></td><td>Fighting</td><td>Fireball (3 SP, level 9+)</td></tr>
       <tr><td><kbd>C</kbd></td><td>Fighting</td><td>Chill (4 SP, level 13+)</td></tr>
       <tr><td><kbd>H</kbd></td><td>Any</td><td>Heal: turn SP into HP</td></tr>
-      <tr><td><kbd>L</kbd></td><td>Exploring</td><td>Location spell (1 SP): shows facing, position and depth</td></tr>
+      <tr><td><kbd>L</kbd></td><td>Exploring</td><td>Location spell (1 SP), from the original; the map now shows your position</td></tr>
       <tr><td><kbd>'</kbd></td><td>Fighting</td><td>Flee back where you came from</td></tr>
       <tr><td><kbd>+</kbd></td><td>Any</td><td>Quit the game</td></tr>
     </table>
@@ -678,8 +687,16 @@ function loadMap() {
 function fixMap(levels) {
   const l3 = levels[2], k = '6,0', v = l3 && l3.get(k);
   if (v !== undefined && (v & 0xFFFn) === 0x50An) l3.set(k, (v & ~0xFFFn) | 0xA05n);
+  // Level 3 (5,4) has both a wall and a door on its west edge (the only such edge); it is meant to be a door
+  for (const lv of levels) for (const [key, w] of lv) {
+    const both = (w & 0xFn) & ((w >> 8n) & 0xFn);
+    if (both) lv.set(key, w & ~both);
+  }
   return levels;
 }
+// The wall bit on the edge of (x,y) that faces the next square (ox,oy)
+function edgeBit(x, y, ox, oy) { return oy > y ? 8n : oy < y ? 4n : ox > x ? 2n : 1n; }
+function blockedBack() { return (sget(G.XLOC, G.YLOC) & edgeBit(G.XLOC, G.YLOC, G.OXLOC, G.OYLOC)) !== 0n; }
 // Is there a square here on the current level?
 function onMap(x, y) { return G.LVLS[G.DPTH - 1].has(x + ',' + y); }
 function sget(x, y) { return G.LVLS[G.DPTH - 1].get(x + ',' + y) || 0n; }
@@ -762,6 +779,7 @@ function mspcl(x, y) {
     } else dam(drl(q >> 4, q & 15));
   }
   if (v >> 48n) {                                        // teleport
+    noteTeleport(x, y);
     G.XLOC = Number((v >> 56n) & 255n);
     G.YLOC = Number((v >> 48n) & 255n);
     SF(6);
@@ -1000,7 +1018,7 @@ const ACTIONS = [
     M1('Search');
     const v = sget(G.XLOC, G.YLOC);
     const secret = v & 0xF000n;
-    if (secret && rnd() < .1) {
+    if (secret && rnd() < (FS(4) ? .2 : .1)) {      // 20% with your light on, 10% (the original) in the dark
       const door = secret >> 4n, wall = secret >> 12n;
       sput(G.XLOC, G.YLOC, ((v & ~wall) | door) & 0xFFFFFFFFFFFF0FFFn);
       M2('Found something');
@@ -1036,7 +1054,8 @@ const ACTIONS = [
   /* 11 use */ async () => { const p = await ipick(G.IVT, 'Use which?'); if (p) await iuse(p); },
   /* 12 remove */ irem,
   /* 13 flee */ () => {
-    if (1 / (G.DPTH + 1) > rnd() || FS(6)) M1('Could not escape');
+    if (!FS(6) && blockedBack()) { M1('Could not escape'); M2('A wall is behind you'); }
+    else if (1 / (G.DPTH + 1) > rnd() || FS(6)) M1('Could not escape');
     else { M1('Got away'); SF(6); CF(9); G.XLOC = G.OXLOC; G.YLOC = G.OYLOC; G.anim = 'back'; mspcl(G.XLOC, G.YLOC); }
   },
   /* 14 inventory */ async () => { await ipick(G.IVT, 'Press . to continue'); },
@@ -1056,8 +1075,9 @@ const ACTIONS = [
     else {
       const item = itemFromCode(it);
       G.IVT.push(item);
-      // Scrolls say what they are when picked up; the Ancient scroll (Blank paper) stays a deliberate secret
-      if (item.def.type === 4 && item.def !== LSCRL[6]) {
+      // Scrolls and wands say what they are when picked up. Two stay deliberate secrets: the Ancient
+      // scroll (Blank paper) and the Bronze wand (a Wand of healing that heals the monster).
+      if ((item.def.type === 4 && item.def !== LSCRL[6]) || (item.def.type === 1 && item.def !== LWAND[4])) {
         learn(item.def);
         M1(itemName(item)); M2(itemDesc(item));
       } else { M1('Picked up'); M2(itemName(item)); }
@@ -1083,6 +1103,7 @@ const ACTIONS = [
   },
   /* 22 back */ () => {
     if (FS(6)) M1('Cannot backup');
+    else if (blockedBack()) { M1('Cannot backup'); M2('A wall is behind you'); }
     else { SF(6); G.XLOC = G.OXLOC; G.YLOC = G.OYLOC; G.anim = 'back'; mspcl(G.XLOC, G.YLOC); }
   },
   /* 23 quit */ () => { SF(3); SF(2); }
@@ -1247,6 +1268,49 @@ document.getElementById('keys').addEventListener('click', e => {
   if (k === '+' && !confirm('Quit this game?')) return;
   press(k);
 });
+// Drag an item's grip to move it up or down the pack (not a turn; also the order of item lists)
+(function () {
+  const list = document.getElementById('packList');
+  let drag = null;
+  const clearMarks = () => list.querySelectorAll('.drop-before, .drop-after').forEach(r => r.classList.remove('drop-before', 'drop-after'));
+  list.addEventListener('pointerdown', e => {
+    const g = e.target.closest('.grip');
+    if (!g || !G || G.over || (waiting && waiting.mode === 'pick')) return;
+    e.preventDefault();
+    const row = g.closest('.irow');
+    try { g.setPointerCapture(e.pointerId); } catch (err) {}
+    drag = { from: Number(row.dataset.row), row, to: null };
+    row.classList.add('dragging');
+    document.body.classList.add('reordering');
+  });
+  list.addEventListener('pointermove', e => {
+    if (!drag) return;
+    const r = list.getBoundingClientRect();
+    if (e.clientY < r.top + 28) list.scrollTop -= 10; else if (e.clientY > r.bottom - 28) list.scrollTop += 10;
+    clearMarks();
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    const row = el && el.closest && el.closest('#packList .irow[data-row]');
+    if (!row) { drag.to = null; return; }
+    const rr = row.getBoundingClientRect(), after = e.clientY > rr.top + rr.height / 2;
+    row.classList.add(after ? 'drop-after' : 'drop-before');
+    drag.to = Number(row.dataset.row) + (after ? 1 : 0);          // insert before this position
+  });
+  const end = () => {
+    if (!drag) return;
+    const { from, to } = drag;
+    drag.row.classList.remove('dragging');
+    clearMarks();
+    document.body.classList.remove('reordering');
+    drag = null;
+    if (to === null || to === from || to === from + 1) return;
+    const [it] = G.IVT.splice(from - 1, 1);
+    G.IVT.splice(to > from ? to - 2 : to - 1, 0, it);
+    invSig = '';
+    updatePanel();
+  };
+  list.addEventListener('pointerup', end);
+  list.addEventListener('pointercancel', end);
+})();
 document.getElementById('invpanel').addEventListener('click', e => {
   if (!G || !waiting) return;
   const b = e.target.closest('button[data-act]');
@@ -1322,7 +1386,7 @@ function restoreGame(s) {
   G.known = new Set((s.known || []).map(Number));
   // Saves from before these rules: equipped items and carried scrolls (except the Ancient scroll) are identified
   G.loadIdentified = [];
-  for (const it of G.UIVT.concat(G.IVT.filter(it => it.def.type === 4 && it.def !== LSCRL[6]))) {
+  for (const it of G.UIVT.concat(G.IVT.filter(it => (it.def.type === 4 && it.def !== LSCRL[6]) || (it.def.type === 1 && it.def !== LWAND[4])))) {
     const code = Number(it.def.code >> 24n);
     if (!G.known.has(code) && !it.known) { G.known.add(code); G.loadIdentified.push(it.def.real || it.def.name); }
   }
@@ -1415,6 +1479,15 @@ function recordVisit() {
   G.last = { d, x, y };
 }
 
+// You stepped on a teleport square: it goes on your map, and the path line breaks there
+function noteTeleport(x, y) {
+  const d = G.DPTH - 1, tr = G.trail[d], L = G.last;
+  G.seen[d].add(x + ',' + y);
+  const adjacent = L && L.d === d && Math.abs(L.x - x) + Math.abs(L.y - y) === 1;
+  if (!adjacent && tr.length) tr.push(null);
+  tr.push([x, y]);
+  G.last = null;
+}
 function drawMap() {
   const cv = document.getElementById('map');
   const W = cv.clientWidth, H = cv.clientHeight;
@@ -1431,6 +1504,7 @@ function drawMap() {
   document.getElementById('mapTabs').innerHTML = levels.length > 1
     ? levels.map(l => '<button type="button" data-l="' + l + '" class="' + (l === lvl ? 'on' : '') + '">Level ' + l + '</button>').join('') : '';
   const d = lvl - 1, seen = G.seen[d];
+  document.getElementById('mapPos').textContent = lvl === G.DPTH ? 'E ' + G.XLOC + ' \u00b7 N ' + G.YLOC + ' \u00b7 level ' + lvl : 'level ' + lvl;
   if (!seen || !seen.size) return;
 
   const cells = [...seen].map(k => k.split(',').map(Number));
@@ -1457,34 +1531,52 @@ function drawMap() {
     if (pen) c.lineTo(px, py); else { c.moveTo(px, py); pen = true; }
   }
   c.stroke();
-  // Walls, doors, holes
+  // Walls first, then doors on top so a wall on the far side never hides a door, then markers
   const lv = G.LVLS[d];
+  const nbOf = (x, y, bit) => bit === 8n ? [x, y + 1] : bit === 4n ? [x, y - 1] : bit === 2n ? [x + 1, y] : [x - 1, y];
+  const revBit = { 8: 4n, 4: 8n, 2: 1n, 1: 2n };
+  const edgesOf = (x, y) => {
+    const x0 = X(x), y0 = Y(y), x1 = x0 + cs, y1 = y0 + cs;
+    return [[8n, x0, y0, x1, y0], [4n, x0, y1, x1, y1], [2n, x1, y0, x1, y1], [1n, x0, y0, x0, y1]];
+  };
+  c.strokeStyle = '#d8c8a0'; c.lineWidth = lw; c.lineCap = 'square';
   for (const [x, y] of cells) {
     const v = lv.get(x + ',' + y) || 0n;
-    const x0 = X(x), y0 = Y(y), x1 = x0 + cs, y1 = y0 + cs;
-    const edges = [[8n, x0, y0, x1, y0], [4n, x0, y1, x1, y1], [2n, x1, y0, x1, y1], [1n, x0, y0, x0, y1]];
-    for (const [bit, ax, ay, bx, by] of edges) {
-      const nb = bit === 8n ? [x, y + 1] : bit === 4n ? [x, y - 1] : bit === 2n ? [x + 1, y] : [x - 1, y];
-      const wall = (v & bit) !== 0n || !lv.has(nb[0] + ',' + nb[1]), door = !wall && (v & (bit << 8n)) !== 0n;
-      if (!wall && !door) continue;
-      c.strokeStyle = '#d8c8a0'; c.lineWidth = lw; c.lineCap = 'square';
-      c.beginPath();
-      if (wall) { c.moveTo(ax, ay); c.lineTo(bx, by); }
-      else {                                          // door: wall stubs at each end and a door leaf in the middle
-        const q = .25;
-        c.moveTo(ax, ay); c.lineTo(ax + (bx - ax) * q, ay + (by - ay) * q);
-        c.moveTo(bx, by); c.lineTo(bx - (bx - ax) * q, by - (by - ay) * q);
-      }
-      c.stroke();
-      if (door) {
-        const horiz = ay === by, dw = Math.max(4, cs * .22), len = cs * .5;
-        const mx = (ax + bx) / 2, my = (ay + by) / 2;
-        c.fillStyle = '#b8742a'; c.strokeStyle = '#2a1606'; c.lineWidth = 1;
-        const rx = horiz ? mx - len / 2 : mx - dw / 2, ry = horiz ? my - dw / 2 : my - len / 2;
-        c.fillRect(rx, ry, horiz ? len : dw, horiz ? dw : len);
-        c.strokeRect(rx + .5, ry + .5, (horiz ? len : dw) - 1, (horiz ? dw : len) - 1);
+    for (const [bit, ax, ay, bx, by] of edgesOf(x, y)) {
+      const nb = nbOf(x, y, bit);
+      if ((v & bit) === 0n && lv.has(nb[0] + ',' + nb[1])) continue;
+      c.beginPath(); c.moveTo(ax, ay); c.lineTo(bx, by); c.stroke();
+    }
+  }
+  for (const [x, y] of cells) {
+    const v = lv.get(x + ',' + y) || 0n;
+    for (const [bit, ax, ay, bx, by] of edgesOf(x, y)) {
+      const nb = nbOf(x, y, bit), nk = nb[0] + ',' + nb[1];
+      if ((v & bit) !== 0n || (v & (bit << 8n)) === 0n || !lv.has(nk)) continue;
+      const horiz = ay === by, dw = Math.max(4, cs * .24), len = cs * .5;
+      const mx = (ax + bx) / 2, my = (ay + by) / 2;
+      const rx = horiz ? mx - len / 2 : mx - dw / 2, ry = horiz ? my - dw / 2 : my - len / 2;
+      c.fillStyle = '#16140f'; c.fillRect(rx - 1, ry - 1, (horiz ? len : dw) + 2, (horiz ? dw : len) + 2);
+      c.fillStyle = '#b8742a'; c.strokeStyle = '#2a1606'; c.lineWidth = 1;
+      c.fillRect(rx, ry, horiz ? len : dw, horiz ? dw : len);
+      c.strokeRect(rx + .5, ry + .5, (horiz ? len : dw) - 1, (horiz ? dw : len) - 1);
+      // One-way: the far side (once you've been there) has a wall. Arrow shows the way you can go.
+      const w = lv.get(nk);
+      if (seen.has(nk) && (w & revBit[Number(bit)]) !== 0n) {
+        const [ux, uy] = bit === 8n ? [0, -1] : bit === 4n ? [0, 1] : bit === 2n ? [1, 0] : [-1, 0];
+        const s = Math.max(4, cs * .2);
+        c.fillStyle = '#ffe9b0'; c.strokeStyle = '#2a1606'; c.lineWidth = 1;
+        c.beginPath();
+        c.moveTo(mx + ux * s, my + uy * s);
+        c.lineTo(mx - ux * s * .4 + uy * s * .8, my - uy * s * .4 + ux * s * .8);
+        c.lineTo(mx - ux * s * .4 - uy * s * .8, my - uy * s * .4 - ux * s * .8);
+        c.closePath(); c.fill(); c.stroke();
       }
     }
+  }
+  for (const [x, y] of cells) {
+    const v = lv.get(x + ',' + y) || 0n;
+    const x0 = X(x), y0 = Y(y);
     const tri = (up, col, dx) => {
       const s = cs * .26, cx = x0 + cs / 2 + dx, cy = y0 + cs / 2;
       c.fillStyle = col; c.strokeStyle = '#000'; c.lineWidth = 1;
@@ -1496,6 +1588,13 @@ function drawMap() {
     const up = (v & 0x10n) !== 0n, down = (v & 0x20n) !== 0n;
     if (up) tri(true, '#7ad85a', down ? -cs * .2 : 0);
     if (down) tri(false, '#ff9a3a', up ? cs * .2 : 0);
+    if (v >> 48n) {                                    // a teleport square you've been caught by
+      const cx = x0 + cs / 2, cy = y0 + cs / 2, r = cs * .34;
+      c.strokeStyle = '#c77dff'; c.lineWidth = Math.max(1.5, cs * .08);
+      c.beginPath();
+      for (let a = 0; a <= Math.PI * 4; a += .2) { const rr = r * a / (Math.PI * 4); c.lineTo(cx + rr * Math.cos(a), cy + rr * Math.sin(a)); }
+      c.stroke();
+    }
   }
   // Start of the game
   if (d === 0 && seen.has('0,0')) {
@@ -1590,7 +1689,8 @@ function renderInv() {
       acts += btn('equip', 'p', i, 'aEquip', eqVerb[t] + ' ' + name + (worn ? ' (swaps out ' + esc(itemName(worn)) + ')' : ''), !ready);
     }
     acts += btn('drop', 'p', i, 'drop', 'Drop ' + name + (combat ? ' (not while fighting)' : ''), !ready || combat);
-    return '<li class="irow"' + (pickP ? ' data-pick="' + i + '" data-src="p"' : '') + '><span class="ti">' + icon(TYPE_ICON[t]) + '</span>' +
+    return '<li class="irow" data-row="' + i + '"' + (pickP ? ' data-pick="' + i + '" data-src="p"' : '') + '>' +
+      '<span class="grip" title="Drag to change the order">\u2807</span><span class="ti">' + icon(TYPE_ICON[t]) + '</span>' +
       nameCell(it) + '<span class="acts">' + acts + '</span></li>';
   }).join('') : '<li class="invempty">Nothing yet. Press * on a square with an item to pick it up.</li>';
 }
@@ -1613,8 +1713,7 @@ function updatePanel() {
   document.querySelectorAll('.mainkeys button[data-key]').forEach(b => {
     b.disabled = G.over || !valid.includes(b.dataset.key);
   });
-  document.querySelector('#key0 small').textContent = combat ? 'Attack' : 'Redraw';
-  setIcon(document.getElementById('key0'), combat ? 'attack' : 'look');
+  document.getElementById('key0').disabled = G.over || !combat;      // attacking only makes sense in a fight
 }
 
 /* ===================== Options ===================== */

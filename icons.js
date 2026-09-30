@@ -255,7 +255,7 @@ const TYPE_ICON = [null, 'tWand', 'tRing', 'tPotion', 'tScroll', 'tWeapon', 'tAr
 const KEY_ICON = {
   '4': 'turnLeft', '8': 'forward', '6': 'turnRight', '5': 'about', '2': 'back',
   '*': 'get', '/': 'drop', 'U': 'use', 'R': 'remove', 'I': 'inventory', 'S': 'search', '.': 'rest',
-  'A': 'ascend', 'D': 'descend', '0': 'look',
+  'A': 'ascend', 'D': 'descend', '0': 'attack',
   'M': 'missile', 'E': 'bolt', 'F': 'fire', 'C': 'chill', 'H': 'heal', 'L': 'locate', "'": 'flee', '+': 'quit'
 };
 const PICK_ICON = { '1': 'one', '2': 'two', '3': 'three', 'UP': 'up', 'DOWN': 'down', '.': 'cancel' };

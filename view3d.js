@@ -416,8 +416,9 @@ const V3 = (() => {
   function buildGrid() {
     gx0 = G.XLOC - GR; gy0 = G.YLOC - GR;
     for (let j = 0; j < GN; j++) for (let i = 0; i < GN; i++) {
-      const v = G.LVLS[G.DPTH - 1].get((gx0 + i) + ',' + (gy0 + j));
-      grid[j * GN + i] = v === undefined ? -1 : Number(v & 0xFFFFn) | (Number((v >> 24n) & 15n) << 16);
+      const key = (gx0 + i) + ',' + (gy0 + j), v = G.LVLS[G.DPTH - 1].get(key);
+      const knownTele = v !== undefined && (v >> 48n) !== 0n && G.seen[G.DPTH - 1] && G.seen[G.DPTH - 1].has(key);
+      grid[j * GN + i] = v === undefined ? -1 : Number(v & 0xFFFFn) | (Number((v >> 24n) & 15n) << 16) | (knownTele ? 1 << 20 : 0);
     }
     if (grid[GR * GN + GR] < 0) grid[GR * GN + GR] = 0xF;    // off the map: the original drew all walls
   }
@@ -502,7 +503,12 @@ const V3 = (() => {
         const ex = fx - .5, ey = fy - .5, d2 = ex * ex + ey * ey;
         if (fv) {
           let c;
-          if (info >= 0 && (info & 0x20) && d2 < .12) {
+          if (info >= 0 && (info & (1 << 20)) && d2 < .16) {           // a teleport square you've been caught by
+            const ang = Math.atan2(ey, ex), rr = Math.sqrt(d2), s = Math.sin(ang * 2 - rr * 38);
+            const k = (1 - rr / .4) * (.55 + .45 * s);
+            const base = T.floor[ti];
+            c = sh(pack((base & 255) * (1 - k) + 200 * k, ((base >>> 8) & 255) * (1 - k) + 110 * k, ((base >>> 16) & 255) * (1 - k) + 255 * k), Math.max(b, .6));
+          } else if (info >= 0 && (info & 0x20) && d2 < .12) {
             if (d2 < .09) { const k = d2 / .09; c = sh(pack(30 * k, 26 * k, 24 * k), 1); }
             else c = sh(T.wall[ti], b * 1.1);
           } else c = sh(T.floor[ti], b);
