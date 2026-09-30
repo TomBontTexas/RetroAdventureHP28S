@@ -139,6 +139,8 @@
   .irow .slot { font-size: 11px; color: var(--muted); width: 44px; flex: none; }
   .irow .nm { flex: 1; min-width: 0; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .irow .nm.none { color: var(--muted); font-style: italic; }
+  .irow .nm .desc { display: block; font-size: 11px; line-height: 1.2; color: #c8a870; overflow: hidden; text-overflow: ellipsis; }
+  .pickbox .desc { color: #c8a870; font-size: 12px; margin-left: 4px; }
   .ti, .ab { width: 28px; height: 28px; flex: none; border-radius: 4px; box-shadow: 0 0 0 1px #000, 0 0 0 2px #5a4a30; }
   .ti svg, .ab svg { display: block; width: 100%; height: 100%; border-radius: 4px; }
   .ti.empty { background: #1a1917; }
@@ -555,6 +557,7 @@ const LSCRL = [
       const it = G.IVT[p - 1];
       it.known = true;
       M1(it.def.real || it.def.name);
+      if (it.def.desc) M2(it.def.desc);
     } },
   { name: 'Papyrus scroll', real: 'Gain level', use() { gainl(); G.EXPS = Math.pow(2, G.LVL); } },
   { name: 'Gilted scroll', real: 'Physical heal', use() { G.HP = G.MHP; M1('You feel well'); } },
@@ -600,7 +603,28 @@ LITEMS.forEach((list, t) => list.forEach((def, i) => {
   def.code = BigInt(((i + 1) << 4) | (t + 1)) << 24n;
 }));
 function itemFromCode(byte) { return { def: LITEMS[(byte & 15) - 1][((byte >> 4) & 15) - 1], known: false }; }
-function itemName(it) { return (it.known && it.def.real) ? it.def.real : it.def.name; }
+// An item is identified if it was identified itself (Identify scroll) or its kind has been used / equipped
+function isKnown(it) { return it.known || (G && G.known && G.known.has(Number(it.def.code >> 24n))); }
+function itemName(it) { return (isKnown(it) && it.def.real) ? it.def.real : it.def.name; }
+function itemDesc(it) { return isKnown(it) ? (it.def.desc || '') : ''; }
+// Learn what a kind of item is (after equipping it or using it successfully)
+function learn(def) {
+  const code = Number(def.code >> 24n);
+  if (G.known.has(code)) return;
+  G.known.add(code);
+  logMsg('Identified: ' + (def.real || def.name) + (def.desc ? ' (' + def.desc + ')' : ''));
+}
+// What each item does, shown once it is identified
+[['Used wand: no charges left', 'Wand of fire: 6\u201336 fire damage', 'Wand of lightning: 8\u201348 damage',
+  'Wand of striking: 5\u201320 damage', 'Wand of healing: heals the monster!'],
+ ['+1 HP every turn', '+8 max HP'],
+ ['heals 1\u20138 HP', 'heals 2\u201316 HP', 'faster for a while'],
+ ['names one item', '+1 level', 'full HP', '+1 armour', 'full SP', 'full HP and SP', 'does nothing', '+1\u20134 max HP'],
+ ['1\u20134 damage', '1\u20136 damage', '1\u20138 damage', '2\u201320 damage'],
+ ['armour 1', 'armour 3', 'armour 5', 'armour 5', 'armour 7'],
+ ['+2 HP', '+4 HP', '+5 HP, +1 SP', '\u22121 HP', '+4 SP', '+1 HP'],
+ ['worth 2,000\u20138,000', 'worth 500\u20134,000', 'worth 20,000\u2013120,000', 'worth 1,000,000', 'worth 10,000\u201350,000', 'worthless']
+].forEach((descs, t) => descs.forEach((d, i) => { LITEMS[t][i].desc = d.includes(': ') ? d.split(': ')[1] : d; }));
 
 /* ===================== Monsters ===================== */
 function mrgn() { G.MNSTR.hp += 3; return 0; }             // troll regeneration
@@ -659,7 +683,7 @@ function setup() {
     RNG: 0n, WEP: 1, IVT: [], UIVT: [], LVL: 1, EXPS: 0, DPTH: 1, FDIR: 1,
     F: 8n, L: 1n, R: 2n, TME: 0, tick: 0, LVLS: loadMap(), DMD: [], MNSTR: null,
     MES1: '', MES2: '', dirty: false, over: false,
-    seen: [new Set(), new Set(), new Set()], trail: [[], [], []], last: null
+    seen: [new Set(), new Set(), new Set()], trail: [[], [], []], last: null, known: new Set()
   };
 }
 
@@ -811,7 +835,8 @@ function show(anim, newScene) {
   pk.classList.toggle('show', s.type === 'pick');
   if (s.type === 'pick') {
     document.getElementById('pickbox').innerHTML = '<h3>' + esc(s.prompt) + '</h3>' +
-      s.lines.map((l, i) => '<button type="button" data-key="' + (i + 1) + '"><b>' + (i + 1) + '</b>' + esc(l) + '</button>').join('') +
+      s.lines.map((l, i) => '<button type="button" data-key="' + (i + 1) + '"><b>' + (i + 1) + '</b>' + esc(l) +
+        (s.descs && s.descs[i] ? ' <small class="desc">' + esc(s.descs[i]) + '</small>' : '') + '</button>').join('') +
       '<div class="more">' + (s.more ? s.more + ' more &middot; &uarr; &darr; to scroll &middot; ' : '') + '. or Esc to cancel</div>';
   }
   const ov = document.getElementById('overov');
@@ -830,8 +855,9 @@ async function ipick(list, prompt) {
   try {
     for (;;) {
       const lines = [];
-      for (let j = p; j <= Math.min(p + 2, list.length); j++) lines.push(itemName(list[j - 1]));
-      screen = { type: 'pick', prompt, lines, more: list.length - lines.length };
+      const descs = [];
+      for (let j = p; j <= Math.min(p + 2, list.length); j++) { lines.push(itemName(list[j - 1])); descs.push(itemDesc(list[j - 1])); }
+      screen = { type: 'pick', prompt, lines, descs, more: list.length - lines.length };
       show();
       updatePanel();
       const k = await getKey('pick');
@@ -851,32 +877,38 @@ async function iuse(p) {
   const it = G.IVT.splice(p - 1, 1)[0];
   const d = it.def;
   switch (d.type) {
-    case 1:   // wand: may run out of charge and turn into a used wand
+    case 1: {  // wand: may run out of charge and turn into a used wand
+      const inFight = FS(9);
       G.IVT.unshift(d.keep > rnd() ? it : { def: LWAND[0], known: false });
       await d.use();
+      if (inFight || d === LWAND[0]) learn(d);        // you see what it does
       break;
+    }
     case 2:   // ring
-      if (G.RNG === 0n) { G.RNG = d.code; G.UIVT.unshift(it); d.on(); }
+      if (G.RNG === 0n) { G.RNG = d.code; G.UIVT.unshift(it); d.on(); learn(d); }
       else { M1('Already using one'); G.IVT.unshift(it); }
       break;
     case 3:   // potion
       if (d.undo) daemon(drl(3, 6), d.undo);
       d.use();
+      learn(d);
       break;
     case 4:   // scroll
       await d.use();
+      learn(d);
       break;
     case 5:   // weapon
-      if (G.WEP === 1) { G.WEP = d.dmg; G.UIVT.unshift(it); }
+      if (G.WEP === 1) { G.WEP = d.dmg; G.UIVT.unshift(it); learn(d); }
       else { M1('Armed already'); G.IVT.unshift(it); }
       break;
     case 6:   // armour
       if (G.ARM) { M1('Already armoured'); G.IVT.unshift(it); }
-      else { G.ARM = d.ac; G.UIVT.unshift(it); }
+      else { G.ARM = d.ac; G.UIVT.unshift(it); learn(d); }
       break;
     case 7:   // food
       G.HP = Math.min(G.HP + d.hp, G.MHP);
       G.SP = Math.min(G.SP + d.sp, G.MSP);
+      learn(d);
       M1('Eaten'); M2(itemName(it));
       break;
     case 8:
@@ -1237,7 +1269,7 @@ function snapshot() {
     LVLS: G.LVLS.map(m => [...m].map(([k, v]) => k + ',' + v.toString(16))),
     DMD: G.DMD.map(d => d.fn === poison ? { n: d.n, poison: 1 } : potion(d.fn) ? { n: d.n, undo: Number(potion(d.fn).code >> 24n) } : null).filter(Boolean),
     MNSTR: FS(9) && G.MNSTR ? { i: G.MNSTR.idx, hp: G.MNSTR.hp } : null,
-    seen: G.seen.map(s => [...(s || [])]), trail: G.trail, last: G.last
+    seen: G.seen.map(s => [...(s || [])]), trail: G.trail, last: G.last, known: [...G.known]
   };
 }
 function restoreGame(s) {
@@ -1258,6 +1290,7 @@ function restoreGame(s) {
   G.DMD = (s.DMD || []).map(d => d.poison ? { n: d.n, fn: poison } : { n: d.n, fn: itemFromCode(d.undo).def.undo }).filter(d => d.fn);
   if (s.MNSTR && MLST[s.MNSTR.i]) G.MNSTR = { ...MLST[s.MNSTR.i], hp: s.MNSTR.hp }; else { G.MNSTR = null; CF(9); }
   G.seen = [0, 1, 2].map(i => new Set((s.seen && s.seen[i]) || []));
+  G.known = new Set((s.known || []).map(Number));
   G.trail = [0, 1, 2].map(i => (s.trail && s.trail[i]) || []);
   G.last = s.last || null;
   G.F = [8n, 4n, 2n, 1n][G.FDIR - 1]; G.L = [1n, 2n, 8n, 4n][G.FDIR - 1]; G.R = [2n, 1n, 4n, 8n][G.FDIR - 1];
@@ -1464,11 +1497,15 @@ function logMsg(s) {
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]); }
 let invSig = '', invSeq = 0;
 function icon(name) { return ICONS[name]('v' + (invSeq++) + '_'); }
+function nameCell(it) {
+  const n = esc(itemName(it)), d = esc(itemDesc(it));
+  return '<span class="nm" title="' + n + (d ? ' \u2014 ' + d : '') + '">' + n + (d ? '<small class="desc">' + d + '</small>' : '') + '</span>';
+}
 function renderInv() {
   const ready = !!waiting && waiting.mode === 'main' && !G.over;
   const picking = !!waiting && waiting.mode === 'pick';
   const combat = FS(9);
-  const sig = JSON.stringify([G.IVT.map(itemName), G.UIVT.map(itemName), ready, picking, combat,
+  const sig = JSON.stringify([G.IVT.map(it => itemName(it) + itemDesc(it)), G.UIVT.map(it => itemName(it) + itemDesc(it)), ready, picking, combat,
     picking && pickList === G.IVT, picking && pickList === G.UIVT]);
   if (sig === invSig) return;
   invSig = sig;
@@ -1485,7 +1522,7 @@ function renderInv() {
     if (i < 0) return '<li class="irow"><span class="slot">' + slot + '</span><span class="ti empty"></span><span class="nm none">' + none + '</span></li>';
     const it = G.UIVT[i];
     return '<li class="irow"' + (pickU ? ' data-pick="' + (i + 1) + '" data-src="u"' : '') + '><span class="slot">' + slot + '</span>' +
-      '<span class="ti">' + icon(TYPE_ICON[type]) + '</span><span class="nm" title="' + esc(itemName(it)) + '">' + esc(itemName(it)) + '</span>' +
+      '<span class="ti">' + icon(TYPE_ICON[type]) + '</span>' + nameCell(it) +
       '<span class="acts">' + btn('remove', 'u', i + 1, 'remove', 'Remove ' + esc(itemName(it)) + (combat ? ' (not while fighting)' : ''), !ready || combat) + '</span></li>';
   }).join('');
 
@@ -1502,7 +1539,7 @@ function renderInv() {
     }
     acts += btn('drop', 'p', i, 'drop', 'Drop ' + name + (combat ? ' (not while fighting)' : ''), !ready || combat);
     return '<li class="irow"' + (pickP ? ' data-pick="' + i + '" data-src="p"' : '') + '><span class="ti">' + icon(TYPE_ICON[t]) + '</span>' +
-      '<span class="nm" title="' + name + '">' + name + '</span><span class="acts">' + acts + '</span></li>';
+      nameCell(it) + '<span class="acts">' + acts + '</span></li>';
   }).join('') : '<li class="invempty">Nothing yet. Press * on a square with an item to pick it up.</li>';
 }
 function updatePanel() {
