@@ -72,6 +72,12 @@
     background: rgba(90, 14, 10, .82); border: 1px solid #c8503a; color: #ffd9c8;
     font: 700 clamp(13px, 2vw, 16px)/1.2 Georgia, serif; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }
   .fightbar:empty { display: none; }
+  .enemy { position: absolute; top: 46px; left: 50%; transform: translateX(-50%); width: min(62%, 320px); display: none;
+    align-items: center; gap: 8px; padding: 4px 10px; border-radius: 12px; background: rgba(20, 6, 4, .72); }
+  .enemy.show { display: flex; }
+  .enemy-track { flex: 1; height: 10px; border-radius: 5px; background: #3a1410; overflow: hidden; box-shadow: inset 0 0 0 1px #6a2a20; }
+  .enemy-track i { display: block; height: 100%; width: 100%; border-radius: 5px; background: linear-gradient(90deg, #8a1a10, #e8402a); transition: width .3s; }
+  .enemy span { font: 700 12px/1 system-ui, sans-serif; color: #ffd9c8; white-space: nowrap; font-variant-numeric: tabular-nums; }
   .pickov, .overov { position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
     background: rgba(0, 0, 0, .55); }
   .pickov.show, .overov.show { display: flex; }
@@ -229,6 +235,7 @@
         <canvas id="view" width="640" height="480" aria-label="3D view of the dungeon"></canvas>
         <canvas id="fx" width="640" height="480" aria-hidden="true"></canvas>
         <div class="fightbar" id="fightBanner"></div>
+        <div class="enemy" id="enemy"><div class="enemy-track"><i id="enemyFill"></i></div><span id="enemyText"></span></div>
         <div class="caption" id="caption"></div>
         <div class="pickov" id="pickov"><div class="pickbox" id="pickbox"></div></div>
         <div class="overov" id="overov"><div id="overBig"></div></div>
@@ -802,7 +809,8 @@ function mspcl(x, y) {
   const mi = Number((v >> 40n) & 255n);
   if (mi) {
     const def = MLST[mi - 1];
-    G.MNSTR = { ...def, hp: def.hp() };
+    const hp = def.hp();
+    G.MNSTR = { ...def, hp, maxhp: hp };
     SF(9);
   }
   const it = Number((v >> 24n) & 255n);
@@ -872,6 +880,11 @@ function render() {
   G.MES1 = ''; G.MES2 = ''; G.dirty = false;
   updatePanel();
 }
+// The monster's health now and at its best (healing or regenerating can push it past where it started)
+function enemyHP() {
+  const m = G.MNSTR, hp = Math.max(0, m.hp);
+  return [hp, Math.max(m.maxhp || m.hp, m.hp, 1)];
+}
 function isModern() { return document.body.classList.contains('modern'); }
 function show(anim, newScene) {
   const s = screen;
@@ -893,6 +906,13 @@ function show(anim, newScene) {
   const cap = document.getElementById('caption');
   cap.innerHTML = s.type === 'play' ? [s.m1, s.m2].filter(Boolean).map(m => '<div>' + esc(m) + '</div>').join('') : '';
   document.getElementById('fightBanner').textContent = (s.type !== 'over' && FS(9) && G.MNSTR) ? 'Fight \u2014 ' + G.MNSTR.name : '';
+  const fighting = s.type !== 'over' && FS(9) && G.MNSTR, en = document.getElementById('enemy');
+  en.classList.toggle('show', !!fighting);
+  if (fighting) {
+    const [hp, mx] = enemyHP();
+    document.getElementById('enemyFill').style.width = (100 * hp / mx) + '%';
+    document.getElementById('enemyText').textContent = hp + ' / ' + mx;
+  }
   const pk = document.getElementById('pickov');
   pk.classList.toggle('show', s.type === 'pick');
   if (s.type === 'pick') {
@@ -1393,7 +1413,7 @@ function snapshot() {
     UIVT: G.UIVT.map(it => [itemCode(it), it.known ? 1 : 0]),
     LVLS: G.LVLS.map(m => [...m].map(([k, v]) => k + ',' + v.toString(16))),
     DMD: G.DMD.map(d => d.fn === poison ? { n: d.n, poison: 1 } : potion(d.fn) ? { n: d.n, undo: Number(potion(d.fn).code >> 24n) } : null).filter(Boolean),
-    MNSTR: FS(9) && G.MNSTR ? { i: G.MNSTR.idx, hp: G.MNSTR.hp } : null,
+    MNSTR: FS(9) && G.MNSTR ? { i: G.MNSTR.idx, hp: G.MNSTR.hp, max: G.MNSTR.maxhp } : null,
     seen: G.seen.map(s => [...(s || [])]), trail: G.trail, last: G.last, known: [...G.known]
   };
 }
@@ -1413,7 +1433,7 @@ function restoreGame(s) {
     return m;
   });
   G.DMD = (s.DMD || []).map(d => d.poison ? { n: d.n, fn: poison } : { n: d.n, fn: itemFromCode(d.undo).def.undo }).filter(d => d.fn);
-  if (s.MNSTR && MLST[s.MNSTR.i]) G.MNSTR = { ...MLST[s.MNSTR.i], hp: s.MNSTR.hp }; else { G.MNSTR = null; CF(9); }
+  if (s.MNSTR && MLST[s.MNSTR.i]) G.MNSTR = { ...MLST[s.MNSTR.i], hp: s.MNSTR.hp, maxhp: s.MNSTR.max || s.MNSTR.hp }; else { G.MNSTR = null; CF(9); }
   G.seen = [0, 1, 2].map(i => new Set((s.seen && s.seen[i]) || []));
   G.known = new Set((s.known || []).map(Number));
   // Saves from before these rules: equipped items and carried scrolls (except the Ancient scroll) are identified
@@ -1734,7 +1754,8 @@ function updatePanel() {
   document.getElementById('stats').innerHTML = [
     ['Level', G.LVL], ['Experience', G.EXPS], ['Armour', G.ARM],
     ['Hit points', Math.max(G.HP, 0) + ' / ' + G.MHP], ['Spell energy', G.SP + ' / ' + G.MSP], ['State', G.over ? 'Game over' : combat ? 'Fighting' : 'Exploring'],
-    ['Light', FS(4) ? 'On' : '<b class="lightout">Out</b>']
+    ['Light', FS(4) ? 'On' : '<b class="lightout">Out</b>'],
+    ...(FS(9) && G.MNSTR ? [['Enemy HP', enemyHP().join(' / ')]] : [])
   ].map(([k, v]) => '<div><span>' + k + '</span>' + (k === 'Light' ? v : esc(v)) + '</div>').join('');
   const picking = !!waiting && waiting.mode === 'pick';
   document.getElementById('calc').classList.toggle('picking', picking);
