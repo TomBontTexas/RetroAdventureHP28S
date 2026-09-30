@@ -690,6 +690,13 @@ function loadMap() {
 function fixMap(levels) {
   const l3 = levels[2], k = '6,0', v = l3 && l3.get(k);
   if (v !== undefined && (v & 0xFFFn) === 0x50An) l3.set(k, (v & ~0xFFFn) | 0xA05n);
+  // Level 3's south-east corner (Troll, Guard, Wand of lightning) is sealed off in the original data.
+  // Open a door between (4,6) and (4,7), where it comes closest to the rest of the level.
+  const a46 = l3 && l3.get('4,6'), a47 = l3 && l3.get('4,7');
+  if (a46 !== undefined && a47 !== undefined && (a46 & 8n) && (a47 & 4n)) {
+    l3.set('4,6', (a46 & ~8n) | 0x800n);
+    l3.set('4,7', (a47 & ~4n) | 0x400n);
+  }
   // Level 3 (5,4) has both a wall and a door on its west edge (the only such edge); it is meant to be a door
   for (const lv of levels) for (const [key, w] of lv) {
     const both = (w & 0xFn) & ((w >> 8n) & 0xFn);
