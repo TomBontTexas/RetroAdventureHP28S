@@ -606,5 +606,12 @@ const V3 = (() => {
   }
 
   function draw(anim) { scene(); present(anim); }
-  return { init, draw, monSprite };
+  // Where a monster is drawn on the 640 x 480 view (for effects)
+  function monBox(idx) {
+    const m = monSprite(idx), z = 1.0;
+    const h = FOC * m.size / z, w = h * m.cv.width / m.cv.height;
+    const footY = CY + FOC * (EYE - m.float) / z;
+    return { x: VW / 2 - w / 2, y: footY - h, w, h, cv: m.cv };
+  }
+  return { init, draw, monSprite, monBox };
 })();

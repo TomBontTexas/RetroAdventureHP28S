@@ -59,6 +59,7 @@
   .viewwrap { position: relative; width: min(100%, calc((100vh - 330px) * 4 / 3)); min-width: min(100%, 300px); margin: 0 auto;
     aspect-ratio: 4 / 3; background: #000; border-radius: 6px; overflow: hidden; }
   canvas#view { display: block; width: 100%; height: 100%; }
+  canvas#fx { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
   .viewwrap.hurt::after { content: ""; position: absolute; inset: 0; pointer-events: none;
     box-shadow: inset 0 0 90px 30px rgba(200, 20, 10, .75); animation: hurt .45s ease-out forwards; }
   @keyframes hurt { from { opacity: 1; } to { opacity: 0; } }
@@ -226,6 +227,7 @@
       <canvas id="lcd" width="685" height="160" aria-label="HP-28S display"></canvas>
       <div class="viewwrap" id="viewwrap">
         <canvas id="view" width="640" height="480" aria-label="3D view of the dungeon"></canvas>
+        <canvas id="fx" width="640" height="480" aria-hidden="true"></canvas>
         <div class="fightbar" id="fightBanner"></div>
         <div class="caption" id="caption"></div>
         <div class="pickov" id="pickov"><div class="pickbox" id="pickbox"></div></div>
@@ -376,6 +378,7 @@
 <script src="update-banner.js"></script>
 <script src="view3d.js"></script>
 <script src="icons.js"></script>
+<script src="fx.js"></script>
 <script>
 'use strict';
 document.getElementById('ver').textContent = window.APP_VERSION;
@@ -539,18 +542,18 @@ const SF = n => flags.add(n), CF = n => flags.delete(n), FS = n => flags.has(n);
 
 /* ===================== Items ===================== */
 const LWAND = [
-  { name: 'Black wand', real: 'Used wand', keep: 1, use() { M1('Fizzle splutter'); } },
+  { name: 'Black wand', real: 'Used wand', keep: 1, use() { M1('Fizzle splutter'); fx('fizzle'); } },
   { name: 'Willow wand', real: 'Wand of fire', keep: .9, use() {
-      M1('Blast of fire');
+      M1('Blast of fire'); fx('fireball');
       if (FS(9) && rnd() < .6) { let d = drl(6, 6); if (G.MNSTR.res & 1) d = Math.floor(d / 2); mdam(d); } } },
   { name: 'Oaken wand', real: 'Wand of lightning', keep: .8, use() {
-      M1('Bolt of lightning');
+      M1('Bolt of lightning'); fx('bolt');
       if (FS(9) && rnd() < .4) { let d = drl(8, 6); if (G.MNSTR.res & 4) d = Math.floor(d / 4); mdam(d); } } },
   { name: 'Tin wand', real: 'Wand of striking', keep: .95, use() {
-      M1('A heavy thump');
+      M1('A heavy thump'); fx('fist');
       if (FS(9) && rnd() < .9) mdam(drl(5, 4)); } },
   { name: 'Bronze wand', real: 'Wand of healing', keep: .1, use() {
-      M1('Blast of fire');
+      M1('Blast of fire'); fx('fireball');
       if (FS(9) && rnd() < .8) G.MNSTR.hp += drl(2, 8); } }
 ];
 const LRING = [
@@ -560,9 +563,9 @@ const LRING = [
     on() { G.MHP += 8; M1('Feel stronger'); }, off() { G.MHP -= 8; G.HP = Math.min(G.HP, G.MHP); M1('Weaker again'); } }
 ];
 const LPOT = [
-  { name: 'Green potion', real: 'Potion of healing', use() { G.HP = Math.min(G.HP + drl(1, 8), G.MHP); M1('You feel better'); } },
-  { name: 'Red vial', real: 'Extra healing', use() { G.HP = Math.min(G.HP + drl(2, 8), G.MHP); M1('You feel well'); } },
-  { name: 'Clear juice', real: 'Pure speed potion', use() { G.SPD += 1; M1('The world slows'); }, undo() { G.SPD -= 1; } }
+  { name: 'Green potion', real: 'Potion of healing', use() { G.HP = Math.min(G.HP + drl(1, 8), G.MHP); M1('You feel better'); fx('heal'); } },
+  { name: 'Red vial', real: 'Extra healing', use() { G.HP = Math.min(G.HP + drl(2, 8), G.MHP); M1('You feel well'); fx('heal'); } },
+  { name: 'Clear juice', real: 'Pure speed potion', use() { G.SPD += 1; M1('The world slows'); fx('speed'); }, undo() { G.SPD -= 1; } }
 ];
 const LSCRL = [
   { name: 'Paper scroll', real: 'Identify', async use() {
@@ -574,12 +577,12 @@ const LSCRL = [
       if (it.def.desc) M2(it.def.desc);
     } },
   { name: 'Papyrus scroll', real: 'Gain level', use() { gainl(); G.EXPS = Math.pow(2, G.LVL); } },
-  { name: 'Gilted scroll', real: 'Physical heal', use() { G.HP = G.MHP; M1('You feel well'); } },
-  { name: 'Vellum scroll', real: 'Protection', use() { G.ARM += 1; M1('You feel safe'); } },
-  { name: 'Ornate scroll', real: 'Psychic healing', use() { G.SP = G.MSP; M1('Feel refreshed'); } },
-  { name: 'Tattered scroll', real: 'Total healing', use() { G.HP = G.MHP; G.SP = G.MSP; M1('You feel great'); } },
+  { name: 'Gilted scroll', real: 'Physical heal', use() { G.HP = G.MHP; M1('You feel well'); fx('heal'); } },
+  { name: 'Vellum scroll', real: 'Protection', use() { G.ARM += 1; M1('You feel safe'); fx('shield'); } },
+  { name: 'Ornate scroll', real: 'Psychic healing', use() { G.SP = G.MSP; M1('Feel refreshed'); fx('mana'); } },
+  { name: 'Tattered scroll', real: 'Total healing', use() { G.HP = G.MHP; G.SP = G.MSP; M1('You feel great'); fx('heal'); fx('mana'); } },
   { name: 'Ancient scroll', real: 'Blank paper', use() { M1('Nothing happens'); } },
-  { name: 'Bloody scroll', real: 'Agression', use() { const n = d4(); G.MHP += n; G.HP += n; M1('Your body glows'); } }
+  { name: 'Bloody scroll', real: 'Agression', use() { const n = d4(); G.MHP += n; G.HP += n; M1('Your body glows'); fx('rage'); } }
 ];
 const LWEAP = [
   { name: 'Dagger', real: null, dmg: d4 },
@@ -740,6 +743,7 @@ function dam(d) {
 
 function gainl() {
   G.LVL += 1; G.MHP += d4() + 1; G.MSP += d4() + 1;
+  fx('levelup', { level: G.LVL });
   beep(3500, .05);
   M1('Attained level'); M2(String(G.LVL));
 }
@@ -751,6 +755,7 @@ function mdam(d) {
   M2('You hit');
   m.hp -= d;
   if (m.hp > 0) return;
+  fx('death', { box: V3.monBox(m.idx) });
   CF(9);
   G.EXPS += m.exp;
   while (Math.floor(Math.log2(G.EXPS)) > G.LVL) gainl();
@@ -834,12 +839,22 @@ function pstat() {
   px(41, 22); px(41, 24); px(43, 21); px(43, 25);
   LneH(sp, 43, 22); LneH(sp, 43, 23); LneH(sp, 43, 24);
 }
+// Spell / item effects queued during a turn and played after the view is redrawn (modern view only)
+const fxq = [];
+function fx(kind, opts) { fxq.push(Object.assign({ kind }, opts || {})); }
+function playFx() {
+  if (!fxq.length) return;
+  const list = fxq.splice(0);
+  if (!isModern()) return;
+  FXP.play(list, FS(9) && G.MNSTR ? V3.monBox(G.MNSTR.idx) : null);
+}
 // What the screen shows: the game view with messages, an item list to pick from, or the end of the game
 let screen = { type: 'play', m1: '', m2: '' };
 function render() {
   recordVisit();
   screen = { type: 'play', m1: G.MES1, m2: G.MES2 };
   show(G.anim || null, true);
+  playFx();
   if (/ouch/.test(screen.m1 + screen.m2) && isModern()) {
     const vw = document.getElementById('viewwrap');
     vw.classList.remove('hurt'); void vw.offsetWidth; vw.classList.add('hurt');
@@ -1025,29 +1040,29 @@ const ACTIONS = [
     } else M2('Nothing');
   },
   /* 6 chill */ () => spell(12, 4, 'chill spell', () => {
-    M1('Cast chill spell'); G.SP -= 4;
+    M1('Cast chill spell'); G.SP -= 4; fx('chill');
     let d = drl(7, 4) + G.LVL * 4; const r = G.MNSTR.res;
     if (r & 2) d = Math.floor(d / 2); if (r & 8) d = Math.floor(d / 4);
     mdam(d);
   }),
   /* 7 electric */ () => spell(4, 2, 'electric bolt', () => {
-    M1('Electric bolt'); G.SP -= 2;
+    M1('Electric bolt'); G.SP -= 2; fx('bolt');
     let d = drl(3, 4) + G.LVL * 2; const r = G.MNSTR.res;
     if (r & 4) d = Math.floor(d / 2); if (r & 8) d = Math.floor(d / 8);
     mdam(d);
   }),
   /* 8 fireball */ () => spell(8, 3, 'fireball', () => {
-    M1('Fireball spell'); G.SP -= 3;
+    M1('Fireball spell'); G.SP -= 3; fx('fireball');
     let d = drl(5, 4) + G.LVL * 3; const r = G.MNSTR.res;
     if (r & 1) d = Math.floor(d / 2); if (r & 8) d = Math.floor(d / 4);
     mdam(d);
   }),
   /* 9 missile */ () => spell(0, 1, 'magic missile', () => {
-    M1('Magic missile'); G.SP -= 1;
+    M1('Magic missile'); G.SP -= 1; fx('missile', { count: Math.ceil(G.LVL / 3) });
     mdam(G.MNSTR.res & 8 ? 0 : drl(G.LVL, 4));
   }),
   /* 10 heal */ () => {
-    M1('Heal');
+    M1('Heal'); fx('heal');
     const t = Math.max(0, Math.min(G.SP, G.MHP - G.HP));
     G.SP -= t; G.HP += t;
   },
@@ -1748,6 +1763,7 @@ try {
 applyMode();
 decorateKeys(document.getElementById('keys'));
 V3.init(document.getElementById('view'));
+FXP.init(document.getElementById('fx'), [document.getElementById('view'), document.getElementById('fx')]);
 document.getElementById('optSound').addEventListener('change', saveOpts);
 document.getElementById('optMode').addEventListener('change', () => {
   saveOpts(); applyMode();
