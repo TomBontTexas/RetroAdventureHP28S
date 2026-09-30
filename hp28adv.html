@@ -663,7 +663,9 @@ const MLST = [
   { lvl: 7, hp: () => drl(8, 9), arm: 3, res: 0x3, atk: [() => drl(3, 7), mrgn], exp: 800, name: 'Troll' },
   { lvl: 8, hp: () => drl(9, 9), arm: 1, res: 0x4, atk: [() => drl(2, 12)], exp: 900, name: 'Giant' },
   { lvl: 10, hp: () => drl(10, 10), arm: 3, res: 0x7, atk: [() => d10(1), () => d10(1), d4], exp: 1500, name: 'Guard' },
-  { lvl: 15, hp: () => 81 + drl(6, 9), arm: 3, res: 0xF, atk: [d4, () => drl(10, 6), () => drl(7, 4)], exp: 130000, name: 'Magi' }
+  // Magi: his original 10d6 and 7d4 attacks (about 32 damage a round) made him unbeatable at the level
+  // you can reach; halved to 5d6 and 4d4 (about 11 a round) so the final fight is hard but winnable.
+  { lvl: 15, hp: () => 81 + drl(6, 9), arm: 3, res: 0xF, atk: [d4, () => drl(5, 6), () => drl(4, 4)], exp: 130000, name: 'Magi' }
 ];
 
 MLST.forEach((m, i) => { m.idx = i; });
