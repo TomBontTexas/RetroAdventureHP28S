@@ -32,7 +32,7 @@
 
   .calc { margin-top: 12px; background: var(--body); border: 1px solid var(--body-edge);
     border-radius: 14px; padding: 16px; box-shadow: 0 6px 24px rgba(0,0,0,.35); }
-  .lcd-frame { background: #121210; border-radius: 8px; padding: 10px; }
+  .lcd-frame { background: #121210; border-radius: 8px; padding: 8px 10px 4px; }
   canvas#lcd { display: block; width: 100%; aspect-ratio: 137 / 32; background: var(--lcd);
     border-radius: 3px; image-rendering: pixelated; }
   .timer { height: 4px; margin-top: 6px; background: #121210; border-radius: 2px; overflow: hidden; }
@@ -41,12 +41,15 @@
 
   .grid { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 16px; }
   @media (max-width: 860px) { .grid { grid-template-columns: minmax(0, 1fr); } }
-  .keys { margin-top: 12px; }
+  .keys { margin-top: 8px; }
+  .keys .row { grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 2px; }
+  .keys .row + .row { margin-top: 2px; }
+  @media (max-width: 560px) { .keys .row { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
 
   /* Display modes */
   body.classic .viewwrap, body.classic .bars { display: none; }
   body.modern canvas#lcd { display: none; }
-  .viewwrap { position: relative; width: min(100%, calc(62vh * 4 / 3)); min-width: min(100%, 300px); margin: 0 auto;
+  .viewwrap { position: relative; width: min(100%, calc((100vh - 330px) * 4 / 3)); min-width: min(100%, 300px); margin: 0 auto;
     aspect-ratio: 4 / 3; background: #000; border-radius: 6px; overflow: hidden; }
   canvas#view { display: block; width: 100%; height: 100%; }
   .viewwrap.hurt::after { content: ""; position: absolute; inset: 0; pointer-events: none;
@@ -89,11 +92,11 @@
     padding: 4px 2px 5px; cursor: pointer; font: inherit; display: flex; flex-direction: column; align-items: center;
     justify-content: flex-start; gap: 4px; }
   button.k b { font-size: 16px; line-height: 1.1; }
-  button.k small { font-size: 11px; color: var(--muted); line-height: 1.2; text-align: center; }
+  button.k small { font-size: 10.5px; color: var(--muted); line-height: 1.2; text-align: center; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
   button.k:hover:not(:disabled) small { color: var(--text); }
   button.k:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   /* Ability icon: painted square, dark bevel, bronze frame that lights up gold on hover */
-  .ic { position: relative; display: block; width: clamp(40px, 11vw, 54px); aspect-ratio: 1; border-radius: 5px;
+  .ic { position: relative; display: block; width: min(48px, 92%); aspect-ratio: 1; border-radius: 5px;
     box-shadow: 0 0 0 1px #000, 0 0 0 3px #5a4a30, 0 0 0 4px #000, 0 3px 6px rgba(0,0,0,.6);
     transition: box-shadow .12s, filter .12s, transform .06s; }
   .ic .art, .ic svg { display: block; width: 100%; height: 100%; border-radius: 5px; }
@@ -173,39 +176,32 @@
 
       <div class="keys" id="keys">
         <div class="mainkeys">
-          <h2>Move</h2>
           <div class="row">
             <button class="k" data-key="4"><b>4</b><small>Turn left</small></button>
             <button class="k" data-key="8"><b>8</b><small>Forward</small></button>
             <button class="k" data-key="6"><b>6</b><small>Turn right</small></button>
-            <button class="k" data-key="5"><b>5</b><small>About face</small></button>
+            <button class="k" data-key="5"><b>5</b><small>U-turn</small></button>
             <button class="k" data-key="2"><b>2</b><small>Go back</small></button>
+            <button class="k" data-key="A"><b>A</b><small>Ascend</small></button>
+            <button class="k" data-key="D"><b>D</b><small>Descend</small></button>
+            <button class="k" data-key="S"><b>S</b><small>Search</small></button>
+            <button class="k" data-key="."><b>.</b><small>Rest</small></button>
+            <button class="k" data-key="L"><b>L</b><small>Locate</small></button>
+            <button class="k" data-key="0" id="key0"><b>0</b><small>Redraw</small></button>
+            <button class="k" data-key="+"><b>+</b><small>Quit</small></button>
           </div>
-          <h2>Act</h2>
           <div class="row">
             <button class="k" data-key="*"><b>*</b><small>Get</small></button>
             <button class="k" data-key="/"><b>/</b><small>Drop</small></button>
             <button class="k" data-key="U"><b>U</b><small>Use</small></button>
             <button class="k" data-key="R"><b>R</b><small>Remove</small></button>
             <button class="k" data-key="I"><b>I</b><small>Inventory</small></button>
-            <button class="k" data-key="S"><b>S</b><small>Search</small></button>
-            <button class="k" data-key="."><b>.</b><small>Rest</small></button>
-            <button class="k" data-key="A"><b>A</b><small>Ascend</small></button>
-            <button class="k" data-key="D"><b>D</b><small>Descend</small></button>
-            <button class="k" data-key="0" id="key0"><b>0</b><small>Redraw</small></button>
-          </div>
-          <h2>Magic &amp; combat</h2>
-          <div class="row">
-            <button class="k spell" data-key="M"><b>M</b><small>Missile</small></button>
-            <button class="k spell" data-key="E"><b>E</b><small>Elec. bolt</small></button>
-            <button class="k spell" data-key="F"><b>F</b><small>Fireball</small></button>
-            <button class="k spell" data-key="C"><b>C</b><small>Chill</small></button>
-            <button class="k spell" data-key="H"><b>H</b><small>Heal</small></button>
-            <button class="k spell" data-key="L"><b>L</b><small>Locate</small></button>
-            <button class="k fight" data-key="'"><b>'</b><small>Flee</small></button>
-            <button class="k blank" tabindex="-1" aria-hidden="true"></button>
-            <button class="k blank" tabindex="-1" aria-hidden="true"></button>
-            <button class="k fight" data-key="+"><b>+</b><small>Quit</small></button>
+            <button class="k" data-key="M"><b>M</b><small>Missile</small></button>
+            <button class="k" data-key="E"><b>E</b><small>Elec. bolt</small></button>
+            <button class="k" data-key="F"><b>F</b><small>Fireball</small></button>
+            <button class="k" data-key="C"><b>C</b><small>Chill</small></button>
+            <button class="k" data-key="H"><b>H</b><small>Heal</small></button>
+            <button class="k" data-key="'"><b>'</b><small>Flee</small></button>
           </div>
         </div>
         <div class="pickrow row">
