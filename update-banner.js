@@ -9,7 +9,8 @@
  * The version this page loaded with is captured at load time. The banner then re-loads
  * version.js through a fresh <script> tag with a cache-busting query (works on GitHub Pages
  * and on local file:// copies, where fetch() would be blocked) 5 s after load, every
- * 5 minutes, and whenever the tab becomes visible again. If the number differs, a sticky
+ * 5 minutes, whenever the tab becomes visible again, and whenever the browser window regains
+ * focus (e.g. switching back from another program; at most once every 10 s). If the number differs, a sticky
  * banner appears with a "Refresh Now" button. Hidden when printing.
  *
  * Exposes: window.APP_VERSION (the running version) and window.checkForUpdate().
@@ -52,6 +53,7 @@
     banner.hidden = false;
     clearInterval(timer);
     document.removeEventListener("visibilitychange", onVisible);
+    window.removeEventListener("focus", onFocus);
   }
 
   function checkForUpdate() {
@@ -65,11 +67,19 @@
     document.head.appendChild(s);
   }
   function onVisible() { if (!document.hidden) checkForUpdate(); }
+  var lastFocusCheck = 0;
+  function onFocus() {
+    var now = Date.now();
+    if (now - lastFocusCheck < 10000) return;
+    lastFocusCheck = now;
+    checkForUpdate();
+  }
 
   window.checkForUpdate = checkForUpdate;
   function start() {
     timer = setInterval(checkForUpdate, 5 * 60 * 1000);
     document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onFocus);
     setTimeout(checkForUpdate, 5000);
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start); else start();
