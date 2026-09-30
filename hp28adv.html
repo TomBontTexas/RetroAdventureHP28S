@@ -1,0 +1,1075 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HP-28S 3D Adventure</title>
+<style>
+  :root {
+    --bg: #1b1a18;
+    --body: #2b2926;
+    --body-edge: #3a3733;
+    --lcd: #b7c2a4;
+    --lcd-on: #1d2419;
+    --lcd-off: rgba(29, 36, 25, 0.06);
+    --text: #e8e2d6;
+    --muted: #a39c8e;
+    --accent: #e0a24a;
+    --blue: #7fb2d9;
+    --key: #3d3a36;
+    --key-hi: #4a4641;
+    --key-text: #f1ece2;
+    --danger: #d9776b;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 16px; }
+  header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  h1 { font-size: 20px; margin: 0; letter-spacing: .02em; }
+  h1 span { color: var(--accent); }
+  .ver { color: var(--muted); font-size: 13px; }
+
+  .calc { margin-top: 12px; background: var(--body); border: 1px solid var(--body-edge);
+    border-radius: 14px; padding: 16px; box-shadow: 0 6px 24px rgba(0,0,0,.35); }
+  .lcd-frame { background: #121210; border-radius: 8px; padding: 10px; }
+  canvas#lcd { display: block; width: 100%; aspect-ratio: 137 / 32; background: var(--lcd);
+    border-radius: 3px; image-rendering: pixelated; }
+  .timer { height: 4px; margin-top: 6px; background: #121210; border-radius: 2px; overflow: hidden; }
+  .timer div { height: 100%; width: 0; background: var(--accent); }
+  .timer-label { font-size: 12px; color: var(--muted); min-height: 18px; margin-top: 2px; }
+
+  .grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 16px; margin-top: 12px; }
+  @media (max-width: 760px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+
+  .keys h2, .panel h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em;
+    color: var(--muted); margin: 10px 0 6px; font-weight: 600; }
+  .keys h2:first-child, .panel h2:first-child { margin-top: 0; }
+  .row { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+  button.k { appearance: none; border: 1px solid #56514b; border-bottom-width: 3px; background: var(--key);
+    color: var(--key-text); border-radius: 7px; padding: 5px 2px 4px; cursor: pointer; min-height: 48px;
+    font: inherit; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  button.k b { font-size: 16px; line-height: 1.1; }
+  button.k small { font-size: 11px; color: var(--muted); line-height: 1.2; }
+  button.k:hover:not(:disabled) { background: var(--key-hi); }
+  button.k:active:not(:disabled) { transform: translateY(1px); border-bottom-width: 2px; }
+  button.k:disabled { opacity: .32; cursor: default; }
+  button.k.fight { border-color: #7a4a40; }
+  button.k.fight b { color: var(--danger); }
+  button.k.spell b { color: var(--blue); }
+  button.k.blank { visibility: hidden; }
+  .pickrow { display: none; }
+  .picking .pickrow { display: grid; }
+  .picking .mainkeys { display: none; }
+
+  .panel { background: #23211f; border: 1px solid var(--body-edge); border-radius: 10px; padding: 12px; }
+  .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px 10px; font-size: 14px; }
+  .stats div span { color: var(--muted); font-size: 12px; display: block; }
+  ol.items { margin: 0; padding: 0; list-style: none; font-size: 14px; }
+  ol.items li { display: flex; gap: 8px; padding: 3px 6px; border-radius: 5px; }
+  ol.items li .n { color: var(--muted); width: 1.6em; text-align: right; flex: none; font-variant-numeric: tabular-nums; }
+  ol.items li.empty { color: var(--muted); font-style: italic; }
+  .picking ol.pickable li:not(.empty) { cursor: pointer; background: #2f2c29; margin-bottom: 2px; }
+  .picking ol.pickable li:not(.empty):hover { background: #3e3a35; outline: 1px solid var(--accent); }
+  .log { font: 13px/1.4 ui-monospace, Consolas, monospace; max-height: 190px; overflow-y: auto;
+    background: #1a1917; border-radius: 6px; padding: 6px 8px; }
+  .log div { color: var(--muted); }
+  .log div:last-child { color: var(--text); }
+  .over { display: none; margin-top: 10px; padding: 10px 12px; background: #332a1e; border: 1px solid #6b5230; border-radius: 8px; }
+  .over.show { display: block; }
+  .over button, .opts button { font: inherit; background: var(--accent); color: #1f1400; border: 0;
+    border-radius: 7px; padding: 6px 14px; cursor: pointer; font-weight: 600; }
+
+  .opts { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; margin-top: 14px; font-size: 14px; }
+  .opts label { display: flex; gap: 6px; align-items: center; }
+  .opts select { font: inherit; background: var(--key); color: var(--text); border: 1px solid #56514b; border-radius: 5px; padding: 3px 5px; }
+  .opts button.ghost { background: transparent; color: var(--text); border: 1px solid #56514b; font-weight: 400; }
+
+  details { margin-top: 16px; background: #23211f; border: 1px solid var(--body-edge); border-radius: 10px; padding: 10px 14px; }
+  summary { cursor: pointer; font-weight: 600; }
+  details table { border-collapse: collapse; font-size: 14px; margin: 8px 0; }
+  details td, details th { padding: 3px 10px 3px 0; text-align: left; vertical-align: top; }
+  details th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+  details code, kbd { font: 13px ui-monospace, Consolas, monospace; background: #34312d; padding: 1px 5px; border-radius: 4px; }
+  footer { color: var(--muted); font-size: 12px; margin: 18px 0 6px; text-align: center; }
+  a { color: var(--blue); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>HP-28S <span>3D Adventure</span></h1>
+    <div class="ver">Version <span id="ver"></span></div>
+  </header>
+
+  <div class="calc" id="calc">
+    <div class="lcd-frame">
+      <canvas id="lcd" width="685" height="160" aria-label="HP-28S display"></canvas>
+      <div class="timer"><div id="timerBar"></div></div>
+      <div class="timer-label" id="timerLabel"></div>
+    </div>
+
+    <div class="grid">
+      <div class="keys" id="keys">
+        <div class="mainkeys">
+          <h2>Move</h2>
+          <div class="row">
+            <button class="k" data-key="4"><b>4</b><small>Turn left</small></button>
+            <button class="k" data-key="8"><b>8</b><small>Forward</small></button>
+            <button class="k" data-key="6"><b>6</b><small>Turn right</small></button>
+            <button class="k" data-key="5"><b>5</b><small>About face</small></button>
+            <button class="k" data-key="2"><b>2</b><small>Go back</small></button>
+          </div>
+          <h2>Act</h2>
+          <div class="row">
+            <button class="k" data-key="*"><b>*</b><small>Get</small></button>
+            <button class="k" data-key="/"><b>/</b><small>Drop</small></button>
+            <button class="k" data-key="U"><b>U</b><small>Use</small></button>
+            <button class="k" data-key="R"><b>R</b><small>Remove</small></button>
+            <button class="k" data-key="I"><b>I</b><small>Inventory</small></button>
+            <button class="k" data-key="S"><b>S</b><small>Search</small></button>
+            <button class="k" data-key="."><b>.</b><small>Rest</small></button>
+            <button class="k" data-key="A"><b>A</b><small>Ascend</small></button>
+            <button class="k" data-key="D"><b>D</b><small>Descend</small></button>
+            <button class="k" data-key="0" id="key0"><b>0</b><small>Redraw</small></button>
+          </div>
+          <h2>Magic &amp; combat</h2>
+          <div class="row">
+            <button class="k spell" data-key="M"><b>M</b><small>Missile</small></button>
+            <button class="k spell" data-key="E"><b>E</b><small>Elec. bolt</small></button>
+            <button class="k spell" data-key="F"><b>F</b><small>Fireball</small></button>
+            <button class="k spell" data-key="C"><b>C</b><small>Chill</small></button>
+            <button class="k spell" data-key="H"><b>H</b><small>Heal</small></button>
+            <button class="k spell" data-key="L"><b>L</b><small>Locate</small></button>
+            <button class="k fight" data-key="'"><b>'</b><small>Flee</small></button>
+            <button class="k blank" tabindex="-1" aria-hidden="true"></button>
+            <button class="k blank" tabindex="-1" aria-hidden="true"></button>
+            <button class="k fight" data-key="+"><b>+</b><small>Quit</small></button>
+          </div>
+        </div>
+        <div class="pickrow row">
+          <button class="k" data-key="1"><b>1</b><small>Line 1</small></button>
+          <button class="k" data-key="2"><b>2</b><small>Line 2</small></button>
+          <button class="k" data-key="3"><b>3</b><small>Line 3</small></button>
+          <button class="k" data-key="UP"><b>&#9650;</b><small>Scroll up</small></button>
+          <button class="k" data-key="DOWN"><b>&#9660;</b><small>Scroll down</small></button>
+          <button class="k" data-key="."><b>.</b><small>Cancel</small></button>
+        </div>
+        <div class="over" id="over">
+          <div id="overText"></div>
+          <p style="margin:8px 0 0"><button type="button" id="newGame2">New game</button></p>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Character</h2>
+        <div class="stats" id="stats"></div>
+        <h2>Pack <small id="pickHint" style="text-transform:none;letter-spacing:0;color:var(--accent)"></small></h2>
+        <ol class="items" id="pack"></ol>
+        <h2>In use</h2>
+        <ol class="items" id="inuse"></ol>
+        <h2>Messages</h2>
+        <div class="log" id="log"></div>
+      </div>
+    </div>
+
+    <div class="opts">
+      <label>Idle timer
+        <select id="optTimer">
+          <option value="always">Original: 3 s idle = rest / attack</option>
+          <option value="combat">Combat only: 3 s idle = attack</option>
+          <option value="off">Off (wait for my key)</option>
+        </select>
+      </label>
+      <label><input type="checkbox" id="optSound" checked> Beeps</label>
+      <button type="button" class="ghost" id="newGame">New game</button>
+    </div>
+  </div>
+
+  <details>
+    <summary>How to play</summary>
+    <p>Walk through a three-level maze, killing everything in sight and collecting items along the way.
+      The aim is to collect as many gems as possible and to kill as much as possible. The maze is fixed
+      and doesn't change between games. Only one item fits on each square.</p>
+    <p>The left of the screen is a 3D view of what's ahead. The two bars on the right are your spell
+      energy (<b>SP</b>) and hit points (<b>HP</b>). Messages appear at the top right.</p>
+    <table>
+      <tr><th>Key</th><th>When</th><th>Does</th></tr>
+      <tr><td><kbd>8</kbd> <kbd>&uarr;</kbd></td><td>Exploring</td><td>Move forward one space</td></tr>
+      <tr><td><kbd>4</kbd> <kbd>&larr;</kbd> / <kbd>6</kbd> <kbd>&rarr;</kbd></td><td>Exploring</td><td>Turn left / right</td></tr>
+      <tr><td><kbd>5</kbd></td><td>Exploring</td><td>About face</td></tr>
+      <tr><td><kbd>2</kbd> <kbd>&darr;</kbd></td><td>Exploring</td><td>Go back one step (only right after moving forward)</td></tr>
+      <tr><td><kbd>0</kbd> <kbd>Space</kbd></td><td>Any</td><td>Redraw; in a fight, attack with your weapon</td></tr>
+      <tr><td><kbd>.</kbd></td><td>Exploring</td><td>Rest (regain 1 HP and 1 SP)</td></tr>
+      <tr><td><kbd>*</kbd> / <kbd>/</kbd></td><td>Exploring</td><td>Get / drop an item</td></tr>
+      <tr><td><kbd>A</kbd> / <kbd>D</kbd></td><td>Exploring</td><td>Ascend / descend through a hole in the ceiling / floor</td></tr>
+      <tr><td><kbd>S</kbd></td><td>Exploring</td><td>Search for secret doors</td></tr>
+      <tr><td><kbd>U</kbd></td><td>Any</td><td>Use an item from your pack (wield, wear, drink, read, eat, zap)</td></tr>
+      <tr><td><kbd>R</kbd></td><td>Exploring</td><td>Remove armour, weapon or ring</td></tr>
+      <tr><td><kbd>I</kbd></td><td>Exploring</td><td>Look at your inventory</td></tr>
+      <tr><td><kbd>M</kbd></td><td>Fighting</td><td>Magic missile (1 SP)</td></tr>
+      <tr><td><kbd>E</kbd></td><td>Fighting</td><td>Electric bolt (2 SP, level 5+)</td></tr>
+      <tr><td><kbd>F</kbd></td><td>Fighting</td><td>Fireball (3 SP, level 9+)</td></tr>
+      <tr><td><kbd>C</kbd></td><td>Fighting</td><td>Chill (4 SP, level 13+)</td></tr>
+      <tr><td><kbd>H</kbd></td><td>Any</td><td>Heal: turn SP into HP</td></tr>
+      <tr><td><kbd>L</kbd></td><td>Exploring</td><td>Location spell (1 SP): shows facing, position and depth</td></tr>
+      <tr><td><kbd>'</kbd></td><td>Fighting</td><td>Flee back where you came from</td></tr>
+      <tr><td><kbd>+</kbd></td><td>Any</td><td>Quit the game</td></tr>
+    </table>
+    <p>When a list of items is on the screen, press <kbd>1</kbd>–<kbd>3</kbd> to pick a line,
+      <kbd>&uarr;</kbd> / <kbd>&darr;</kbd> to scroll, and <kbd>.</kbd>, <kbd>0</kbd> or <kbd>Esc</kbd> to cancel.
+      You can also click an item in the Pack list.</p>
+    <p>Most items are unidentified until you read the right scroll. The <b>idle timer</b> is how the
+      original worked: if you don't press a key for 3 seconds you rest, or in a fight you attack.
+      Your score is your level &times; 100.</p>
+    <p style="color:var(--muted)">Original HP-28S program &copy; Paul Dale 1990; unrestricted non-commercial use
+      granted. This is a JavaScript port of that program.</p>
+  </details>
+
+  <footer>HP-28S 3D Adventure &middot; v<span id="ver2"></span></footer>
+</div>
+
+<script src="version.js"></script>
+<script src="update-banner.js"></script>
+<script>
+'use strict';
+document.getElementById('ver').textContent = window.APP_VERSION;
+document.getElementById('ver2').textContent = window.APP_VERSION;
+
+/* ===================== Map data (from the HP-28S MAP variable) =====================
+   Each cell is "x,y,hexvalue". Bits of the value:
+     0-3  walls  (8 north, 4 south, 2 east, 1 west)      4-7   #10 hole up, #20 hole down
+     8-11 doors  (same direction bits)                     12-15 secret doors
+     16-19 side openings (drawing only)                    20-23 message number
+     24-31 item (low nibble = type, high nibble = index)  32-39 trap
+     40-47 monster number                                  48-63 teleport target (x in 56-63, y in 48-55) */
+const MAPDATA = [
+  "0,0,80007 0,1,E0001 0,2,C0003 0,3,C0003 0,4,60009 0,5,20805 0,6,80403 0,7,C0003 0,8,400000C0003 " +
+  "0,9,17040209 1,-1,A0005 1,0,1604200B 1,1,3000C 1,4,3000C 1,5,2002601020C 1,9,2000D 2,-1,3000C " +
+  "2,0,1500010E 2,1,30804 2,2,10025080403 2,3,2304002B 2,4,11090006 2,5,4010A 2,8,3302000D " +
+  "2,9,410023000C 3,-1,4100290006 3,0,C0201 3,1,5000A 3,8,60000010806 3,9,1402E 4,0,40000080106 " +
+  "4,1,11060009 4,2,20805 4,3,6005100040B 4,4,5000000020D 4,5,40400000000020D 4,6,5000000020D " +
+  "5,1,1020C 5,2,3000C 5,3,8100380007 5,4,110C0300 5,5,C0300 5,6,40B00 5,7,40B 6,1,80106 6,2,50802 " +
+  "6,3,20409 6,4,50700000000010E 6,5,50000002906 6,6,40600000000050A 7,3,30804 7,4,50300000000040B " +
+  "7,5,54080106 7,6,42803 7,7,50500000000040B 8,1,1A0005 8,2,C0003 8,3,5000A 8,4,40000080205 " +
+  "8,5,40026060009 8,6,4102010C 9,1,63000C 9,4,2010C 9,5,2401000E 9,6,1040A 10,1,3300F90006 " +
+  "10,2,6C0003 10,3,1C0003 10,4,5000A",
+  "0,0,B0000000A05 0,1,80403 0,2,140C0003 0,3,E0001 0,4,C0003 0,5,40209 0,7,80205 0,8,A0014B40803 " +
+  "0,9,20409 1,0,B04 1,1,240070040B 1,3,6002201020C 1,5,C000000010E 1,7,C000092010C 1,9,1020C " +
+  "2,0,30C 2,3,20914 2,4,80403 2,5,C0003 2,6,40000040803 2,7,3501040A 2,9,2010C 3,0,8000000010E " +
+  "3,3,3000C 3,6,9000002010C 3,9,1021C 4,1,DA0005 4,2,80014D40803 4,3,90402 4,4,4002B 4,6,4603000C " +
+  "4,9,7050002000D 5,1,57D3000C 5,6,90012090006 5,7,840C0003 5,8,90600040803 5,9,52103400C " +
+  "6,1,18D1000E 6,3,640A0005 6,4,D0028040803 6,5,4600480403 6,6,4002B 6,9,40907050003000C " +
+  "7,3,5801020C 7,9,3000C 8,1,37080027 8,2,680C0003 8,3,3804010A",
+  "-1,3,A0005 -1,4,C0201 -1,5,C0003 -1,6,C0003 -1,7,60009 0,3,3000C 0,4,D0000000906 0,5,4700840B " +
+  "0,6,5600040B 0,7,3800C 0,8,B0000020409 1,2,C0064000807 1,3,90402 1,4,300EC0201 1,5,4000E0001 " +
+  "1,6,300EC0003 1,7,5000A 1,8,4501000E 2,1,3402000D 2,3,A0005 2,4,40004010A 2,5,1020C " +
+  "3,1,D000001020C 3,3,3000C 3,4,A0005 3,5,C0102 3,6,60009 3,7,3100020D 3,9,E000000020D 4,1,80106 " +
+  "4,2,C0003 4,3,5000A 4,4,1201E 4,6,1020C 4,7,80106 4,8,2600CC0003 4,9,60108 5,2,10200000000020D " +
+  "5,4,2010D 5,6,90000080106 5,7,6704000B 5,9,3000C 6,0,10000000050A 6,1,F0000000C03 " +
+  "6,2,100000000708 6,4,90006 6,5,C0003 6,6,4001B 6,9,360043000C 7,0,110000000906 7,1,48000609 " +
+  "7,2,8000000010E 7,4,2010C 7,9,7403000C 8,1,817 8,2,F0000000906 8,3,80007 8,4,2705000A " +
+  "8,8,100000000807 8,9,1040A",
+];
+
+/* ===================== LCD (137 x 32 pixels, like the HP-28S) ===================== */
+const W = 137, H = 32;
+const fb = new Uint8Array(W * H);
+function px(x, y) { if (x >= 0 && x < W && y >= 0 && y < H) fb[y * W + x] = 1; }
+function LneV(n, x, y) { for (let i = 0; i < n; i++) px(x, y + i); }
+function LneH(n, x, y) { for (let i = 0; i < n; i++) px(x + i, y); }
+function LneF(n, x, y) { for (let i = 0; i < n; i++) px(x + i, y + i); }   // 45 degrees, falling
+function LneR(n, x, y) { for (let i = 0; i < n; i++) px(x + i, y - i); }   // 45 degrees, rising
+function cls() { fb.fill(0); }
+
+// 5x7 font, 5 column bytes per character, 0x20..0x7E
+const FONT = (
+  '0000000000' + '00005F0000' + '0007000700' + '147F147F14' + '242A7F2A12' + '2313086462' + '3649562050' + '0008070300' +
+  '001C224100' + '0041221C00' + '2A1C7F1C2A' + '08083E0808' + '0080703000' + '0808080808' + '0000606000' + '2010080402' +
+  '3E5149453E' + '00427F4000' + '7249494946' + '2141494D33' + '1814127F10' + '2745454539' + '3C4A494931' + '4121110907' +
+  '3649494936' + '464949291E' + '0000140000' + '0040340000' + '0008142241' + '1414141414' + '0041221408' + '0201590906' +
+  '3E415D594E' + '7C1211127C' + '7F49494936' + '3E41414122' + '7F4141413E' + '7F49494941' + '7F09090901' + '3E41415173' +
+  '7F0808087F' + '00417F4100' + '2040413F01' + '7F08142241' + '7F40404040' + '7F021C027F' + '7F0408107F' + '3E4141413E' +
+  '7F09090906' + '3E4151215E' + '7F09192946' + '2649494932' + '03017F0103' + '3F4040403F' + '1F2040201F' + '3F4038403F' +
+  '6314081463' + '0304780403' + '6159494D43' + '007F414141' + '0204081020' + '004141417F' + '0402010204' + '4040404040' +
+  '0003070800' + '2054547840' + '7F28444438' + '3844444428' + '384444287F' + '3854545418' + '00087E0902' + '18A4A49C78' +
+  '7F08040478' + '00447D4000' + '2040403D00' + '7F10284400' + '00417F4000' + '7C04780478' + '7C08040478' + '3844444438' +
+  '7C14141408' + '081414147C' + '7C08040408' + '4854545424' + '04043F4424' + '3C4040207C' + '1C2040201C' + '3C4030403C' +
+  '4428102844' + '0C5050503C' + '4464544C44' + '0008364100' + '0000770000' + '0041360800' + '0201020402');
+
+// DISP: clear text line (1-4) and write a left-justified string, 23 characters max
+function disp(str, line) {
+  const y0 = (line - 1) * 8;
+  fb.fill(0, y0 * W, (y0 + 8) * W);
+  str = String(str);
+  for (let c = 0; c < str.length && c < 23; c++) {
+    let code = str.charCodeAt(c);
+    if (code < 32 || code > 126) code = 63;
+    const o = (code - 32) * 10;
+    for (let col = 0; col < 5; col++) {
+      const bits = parseInt(FONT.substr(o + col * 2, 2), 16);
+      for (let r = 0; r < 8; r++) if (bits & (1 << r)) px(c * 6 + col, y0 + r);
+    }
+  }
+}
+
+const canvas = document.getElementById('lcd');
+const ctx = canvas.getContext('2d');
+function blit() {
+  const dpr = window.devicePixelRatio || 1;
+  const cssW = canvas.clientWidth || 685;
+  const s = Math.max(2, Math.floor(cssW * dpr / W));
+  if (canvas.width !== W * s) { canvas.width = W * s; canvas.height = H * s; }
+  const st = getComputedStyle(document.documentElement);
+  ctx.fillStyle = st.getPropertyValue('--lcd').trim();
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  const gap = s >= 5 ? 1 : 0, d = s - gap;
+  ctx.fillStyle = st.getPropertyValue('--lcd-off').trim();
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (!fb[y * W + x]) ctx.fillRect(x * s, y * s, d, d);
+  ctx.fillStyle = st.getPropertyValue('--lcd-on').trim();
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (fb[y * W + x]) ctx.fillRect(x * s, y * s, d, d);
+}
+window.addEventListener('resize', blit);
+
+/* ===================== 3D view pictures (straight from the HP-28S programs) =====================
+   V/H/F/R = LneV/LneH/LneF/LneR (length, x, y), P = pixel (x, y) */
+const GFX = {
+  LD1: 'F5,0,0 F4,0,3 V23,3,6 P4,27',
+  LD2: 'P5,26 V16,6,10 F6,5,5 F5,6,9 V8,10,14',
+  LD3: 'P11,20 V5,12,15 F4,11,11 V3,13,16 P14,17',
+  RD1: 'R5,27,4 R4,28,6 V23,28,6 P27,27',
+  RD2: 'P26,26 V16,25,10 R6,21,10 R5,21,13 V8,21,14',
+  RD3: 'P20,20 V5,19,15 R4,17,14 V3,18,16 P17,17',
+  LP1: 'F5,0,0 R5,0,31',
+  LP2: 'F6,5,5 R6,5,26',
+  LP3: 'F4,11,11 R4,11,20',
+  RP1: 'R5,27,4 F5,27,27',
+  RP2: 'R6,21,10 F6,21,21',
+  RP3: 'R4,17,14 F4,17,17',
+  T1: 'F3,3,0 R3,26,2 H20,6,3',
+  T2: 'H14,9,6 F3,10,7 R3,19,9 H6,13,10',
+  T3: 'H2,15,12',
+  B1: 'R3,3,31 F3,26,29 H20,6,28',
+  B2: 'H14,9,25 R3,10,24 F3,19,22 H6,13,21',
+  B3: 'H2,15,19',
+  LH1: 'H3,0,3 H3,0,28 V26,3,3 P4,4 P4,27',
+  LH2: 'P5,5 P5,26 V20,6,6 H3,7,10 H3,7,21 V12,10,10',
+  LH3: 'R4,11,20 V6,12,13 F4,11,11 V4,13,14',
+  RH1: 'H3,29,3 H3,29,28 V26,28,3 P27,4 P27,27',
+  RH2: 'P26,5 P26,26 V20,25,6 H3,22,10 H3,22,21 V12,21,10',
+  RH3: 'R4,17,14 V6,19,13 F4,17,17 V4,18,14',
+  FP1: 'V22,5,5 V22,26,5 H20,6,5 H20,6,26',
+  FP2: 'V10,11,11 V10,20,11 H8,12,11 H8,12,20',
+  FP3: 'V2,15,15 V2,16,15',
+  FD1: 'V22,5,5 V22,26,5 H20,6,5 H5,6,26 V15,11,12 H8,12,12 V15,20,12 H5,21,26',
+  FD2: 'V10,11,11 V10,20,11 H8,12,11 H2,12,20 V7,14,14 H2,15,14 V7,17,14 H2,18,20',
+  FD3: 'V2,15,15 V2,16,15',
+  OB1: 'H4,14,31 H4,14,30',
+  OB2: 'H2,15,23',
+  OB3: ''
+};
+const LINE = { V: LneV, H: LneH, F: LneF, R: LneR };
+function gfx(name) {
+  const spec = GFX[name];
+  if (!spec) return;
+  for (const op of spec.split(' ')) {
+    const a = op.slice(1).split(',').map(Number);
+    if (op[0] === 'P') px(a[0], a[1]); else LINE[op[0]](a[0], a[1], a[2]);
+  }
+}
+
+/* ===================== Dice ===================== */
+const rnd = Math.random;
+function drl(n, m) { let t = n; for (let i = 0; i < n; i++) t += Math.floor(m * rnd()); return t; }  // n dice of m sides
+const d4 = () => drl(1, 4), d8 = () => drl(1, 8), d10 = n => drl(n, 10);
+
+/* ===================== Game state ===================== */
+let G = null;          // current game
+const flags = new Set();
+const SF = n => flags.add(n), CF = n => flags.delete(n), FS = n => flags.has(n);
+/* Flags as in the original:
+   1 recompute facing masks   2 skip redraw   3 game over      4 lit (can see ahead)
+   5 lost (location fails)    6 can't back up / flee          7 last key was "0"
+   8 ring of healing          9 in combat */
+
+/* ===================== Items ===================== */
+const LWAND = [
+  { name: 'Black wand', real: 'Used wand', keep: 1, use() { M1('Fizzle splutter'); } },
+  { name: 'Willow wand', real: 'Wand of fire', keep: .9, use() {
+      M1('Blast of fire');
+      if (FS(9) && rnd() < .6) { let d = drl(6, 6); if (G.MNSTR.res & 1) d = Math.floor(d / 2); mdam(d); } } },
+  { name: 'Oaken wand', real: 'Wand of lightning', keep: .8, use() {
+      M1('Bolt of lightning');
+      if (FS(9) && rnd() < .4) { let d = drl(8, 6); if (G.MNSTR.res & 4) d = Math.floor(d / 4); mdam(d); } } },
+  { name: 'Tin wand', real: 'Wand of striking', keep: .95, use() {
+      M1('A heavy thump');
+      if (FS(9) && rnd() < .9) mdam(drl(5, 4)); } },
+  { name: 'Bronze wand', real: 'Wand of healing', keep: .1, use() {
+      M1('Blast of fire');
+      if (FS(9) && rnd() < .8) G.MNSTR.hp += drl(2, 8); } }
+];
+const LRING = [
+  { name: 'Gaudy ring', real: 'Ring of healing',
+    on() { SF(8); M1('Seem fitter'); }, off() { CF(8); M1('Feel worse'); } },
+  { name: 'Silver band', real: 'Protection ring',
+    on() { G.MHP += 8; M1('Feel stronger'); }, off() { G.MHP -= 8; G.HP = Math.min(G.HP, G.MHP); M1('Weaker again'); } }
+];
+const LPOT = [
+  { name: 'Green potion', real: 'Potion of healing', use() { G.HP = Math.min(G.HP + drl(1, 8), G.MHP); M1('You feel better'); } },
+  { name: 'Red vial', real: 'Extra healing', use() { G.HP = Math.min(G.HP + drl(2, 8), G.MHP); M1('You feel well'); } },
+  { name: 'Clear juice', real: 'Pure speed potion', use() { G.SPD += 1; M1('The world slows'); }, undo() { G.SPD -= 1; } }
+];
+const LSCRL = [
+  { name: 'Paper scroll', real: 'Identify', async use() {
+      const p = await ipick(G.IVT, 'Identify which?');
+      if (!p) { M1('Nothing happens'); return; }
+      const it = G.IVT[p - 1];
+      it.known = true;
+      M1(it.def.real || it.def.name);
+    } },
+  { name: 'Papyrus scroll', real: 'Gain level', use() { gainl(); G.EXPS = Math.pow(2, G.LVL); } },
+  { name: 'Gilted scroll', real: 'Physical heal', use() { G.HP = G.MHP; M1('You feel well'); } },
+  { name: 'Vellum scroll', real: 'Protection', use() { G.ARM += 1; M1('You feel safe'); } },
+  { name: 'Ornate scroll', real: 'Psychic healing', use() { G.SP = G.MSP; M1('Feel refreshed'); } },
+  { name: 'Tattered scroll', real: 'Total healing', use() { G.HP = G.MHP; G.SP = G.MSP; M1('You feel great'); } },
+  { name: 'Ancient scroll', real: 'Blank paper', use() { M1('Nothing happens'); } },
+  { name: 'Bloody scroll', real: 'Agression', use() { const n = d4(); G.MHP += n; G.HP += n; M1('Your body glows'); } }
+];
+const LWEAP = [
+  { name: 'Dagger', real: null, dmg: d4 },
+  { name: 'Mace', real: null, dmg: () => drl(1, 6) },
+  { name: 'Long sword', real: null, dmg: d8 },
+  { name: 'Long sword', real: "Hero's blade", dmg: () => d10(2) }
+];
+const LARM = [
+  { name: 'Partial leather', real: null, ac: 1 },
+  { name: 'Studded leather', real: null, ac: 3 },
+  { name: 'Leather', real: 'Enchanted leather', ac: 5 },
+  { name: 'Scalemail', real: null, ac: 5 },
+  { name: 'Elf chainmail', real: null, ac: 7 }
+];
+const LFOOD = [
+  { name: 'Rations', real: 'Standard rations', hp: 2, sp: 0 },
+  { name: 'Rations', real: 'Super rations', hp: 4, sp: 0 },
+  { name: 'Rations', real: 'Magic rations', hp: 5, sp: 1 },
+  { name: 'Rations', real: 'Toxic waste', hp: -1, sp: 0 },
+  { name: 'Bread', real: 'Wizard roll', hp: 0, sp: 4 },
+  { name: 'Bread', real: 'Stale bread', hp: 1, sp: 0 }
+];
+const LGEM = [
+  { name: 'Emerald', real: null, value: () => 1000 * drl(2, 4) },
+  { name: 'Topaz', real: null, value: () => 500 * drl(1, 8) },
+  { name: 'Diamond', real: null, value: () => 10000 * drl(2, 6) },
+  { name: 'Black rock', real: "Sorcerer's stone", value: () => 1000000 },
+  { name: 'Gold nugget', real: null, value: () => 5000 * drl(2, 5) },
+  { name: 'Gold nugget', real: "Fool's gold", value: () => 0 }
+];
+// Type numbers match the low nibble of the item code
+const LITEMS = [LWAND, LRING, LPOT, LSCRL, LWEAP, LARM, LFOOD, LGEM];
+LITEMS.forEach((list, t) => list.forEach((def, i) => {
+  def.type = t + 1;
+  def.code = BigInt(((i + 1) << 4) | (t + 1)) << 24n;
+}));
+function itemFromCode(byte) { return { def: LITEMS[(byte & 15) - 1][((byte >> 4) & 15) - 1], known: false }; }
+function itemName(it) { return (it.known && it.def.real) ? it.def.real : it.def.name; }
+const ITEMSEEN = ['A wand', 'A ring', 'A vial', 'A scroll', 'A weapon', 'Some armour', 'Some food', 'A gemstone'];
+
+/* ===================== Monsters ===================== */
+function mrgn() { G.MNSTR.hp += 3; return 0; }             // troll regeneration
+function poison() { dam(1); if (rnd() > .5) daemon(1, poison); }
+const MLST = [
+  { lvl: 1, hp: () => drl(1, 6), arm: 0, res: 0x0, atk: [() => drl(1, 6)], exp: 5, name: 'Imp' },
+  { lvl: 1, hp: d8, arm: 0, res: 0x0, atk: [d8], exp: 8, name: 'Orc' },
+  { lvl: 2, hp: () => drl(2, 8), arm: 0, res: 0x0, atk: [d8], exp: 15, name: 'Gnome' },
+  { lvl: 1, hp: d4, arm: 0, res: 0x0, atk: [() => drl(1, 5)], exp: 3, name: 'Rat' },
+  { lvl: 2, hp: () => drl(2, 7), arm: 1, res: 0x0, atk: [() => d10(1)], exp: 12, name: 'Ghoul' },
+  { lvl: 2, hp: () => 2 + drl(2, 6), arm: 1, res: 0x0, atk: [d8], exp: 10, name: 'Slime' },
+  { lvl: 2, hp: () => d10(2), arm: 0, res: 0x0, atk: [d8], exp: 20, name: 'Pixie' },
+  { lvl: 3, hp: () => drl(3, 8), arm: 1, res: 0x0, atk: [d8, d8], exp: 50, name: 'Ogre' },
+  { lvl: 4, hp: () => drl(4, 8), arm: 4, res: 0x6, atk: [() => drl(2, 4), () => drl(2, 4)], exp: 80, name: 'Shade' },
+  { lvl: 2, hp: () => drl(2, 6), arm: 0, res: 0x0, atk: [d4, () => { daemon(1, poison); return 0; }], exp: 40, name: 'Snake' },
+  { lvl: 3, hp: () => drl(5, 8), arm: 1, res: 0x1, atk: [d4, d4, d4], exp: 120, name: 'Ooze' },
+  { lvl: 3, hp: () => drl(5, 8), arm: 1, res: 0x2, atk: [d4, d4, d4], exp: 120, name: 'Mold' },
+  { lvl: 5, hp: () => drl(6, 9), arm: 2, res: 0x3, atk: [() => drl(2, 8), mrgn], exp: 400, name: 'Troll' },
+  { lvl: 7, hp: () => drl(8, 9), arm: 3, res: 0x3, atk: [() => drl(3, 7), mrgn], exp: 800, name: 'Troll' },
+  { lvl: 8, hp: () => drl(9, 9), arm: 1, res: 0x4, atk: [() => drl(2, 12)], exp: 900, name: 'Giant' },
+  { lvl: 10, hp: () => drl(10, 10), arm: 3, res: 0x7, atk: [() => d10(1), () => d10(1), d4], exp: 1500, name: 'Guard' },
+  { lvl: 15, hp: () => 81 + drl(6, 9), arm: 3, res: 0xF, atk: [d4, () => drl(10, 6), () => drl(7, 4)], exp: 130000, name: 'Magi' }
+];
+
+const SPECIAL = ['Light mist in air', 'Dart', 'Crossbow bolt', 'Lightning bolt', 'Blast of fire', 'Heavy mist here',
+  'Acid rain', 'Moving feeling', 'Falling feeling', 'Tossing sensation', 'Musty odour here', 'Very cold here',
+  'Eerie glow around', 'Pitch black here', 'Thick fog around'];
+
+/* ===================== Sparse map access ===================== */
+function loadMap() {
+  return MAPDATA.map(s => {
+    const m = new Map();
+    for (const c of s.trim().split(/\s+/)) {
+      const [x, y, v] = c.split(',');
+      m.set(x + ',' + y, BigInt('0x' + v));
+    }
+    return m;
+  });
+}
+function sget(x, y) { return G.LVLS[G.DPTH - 1].get(x + ',' + y) || 0n; }
+function sput(x, y, v) { G.LVLS[G.DPTH - 1].set(x + ',' + y, v); }
+function move(x, y, dir) { return [[x, y + 1], [x, y - 1], [x + 1, y], [x - 1, y]][dir - 1]; }  // N S E W
+
+/* ===================== Messages ===================== */
+function M1(s) { G.MES1 = String(s); G.MES2 = ''; G.dirty = true; logMsg(s); }
+function M2(s) { G.MES2 = String(s); G.dirty = true; logMsg(s); }
+
+/* ===================== Core routines ===================== */
+function setup() {
+  flags.clear();
+  [1, 4, 6].forEach(SF);
+  G = {
+    HP: 10, SP: 10, MHP: 10, MSP: 10, SPD: 0, ARM: 0, XLOC: 0, YLOC: 0, OXLOC: 0, OYLOC: 0,
+    RNG: 0n, WEP: 1, IVT: [], UIVT: [], LVL: 1, EXPS: 0, DPTH: 1, FDIR: 1,
+    F: 8n, L: 1n, R: 2n, TME: 0, tick: 0, LVLS: loadMap(), DMD: [], MNSTR: null,
+    MES1: '', MES2: '', dirty: false, over: false
+  };
+}
+
+function daemon(count, fn) { G.DMD.push({ n: count, fn }); }
+function edmd() {
+  const cur = G.DMD; G.DMD = [];
+  const keep = [];
+  for (const d of cur) { d.n -= 1; if (d.n > 0) keep.push(d); else d.fn(); }
+  G.DMD = keep.concat(G.DMD);
+}
+
+function dam(d) {
+  d -= G.ARM;
+  if (d > 0) {
+    let s = 'ouch';
+    G.HP -= d;
+    if (G.HP < 0) { SF(3); s += ' - died'; }
+    M2(s);
+  }
+}
+
+function gainl() {
+  G.LVL += 1; G.MHP += d4() + 1; G.MSP += d4() + 1;
+  beep(3500, .05);
+  M1('Attained level'); M2(String(G.LVL));
+}
+
+function mdam(d) {
+  const m = G.MNSTR;
+  d -= m.arm;
+  if (d <= 0) return;
+  M2('You hit');
+  m.hp -= d;
+  if (m.hp > 0) return;
+  CF(9);
+  G.EXPS += m.exp;
+  while (Math.floor(Math.log2(G.EXPS)) > G.LVL) gainl();
+  sput(G.XLOC, G.YLOC, sget(G.XLOC, G.YLOC) & 0xFFFF00FFFFFFFFFFn);
+  M2('Killed it');
+}
+
+function hitRoll(lvl) { return lvl / 14 * .3 + .5 > rnd(); }
+function matk() { const m = G.MNSTR; for (const a of m.atk) if (hitRoll(m.lvl)) dam(a()); }
+function patk() { if (hitRoll(G.LVL)) mdam(typeof G.WEP === 'function' ? G.WEP() : G.WEP); }
+
+// Things that happen on arriving at a square
+function mspcl(x, y) {
+  const v = sget(x, y);
+  const msg = Number((v >> 20n) & 15n);
+  if (msg) M1(SPECIAL[msg - 1]);
+  const q = Number((v >> 32n) & 255n);
+  if (q && rnd() >= .5) {
+    if (q < 16) {
+      // 1 and 2 were UP / DWN in the original, which were never defined (and no square uses them)
+      ({ 3: () => CF(4), 4: () => SF(4), 5: () => SF(5), 6: () => CF(5), 7: () => SF(6) })[q]?.();
+    } else dam(drl(q >> 4, q & 15));
+  }
+  if (v >> 48n) {                                        // teleport
+    G.XLOC = Number((v >> 56n) & 255n);
+    G.YLOC = Number((v >> 48n) & 255n);
+    SF(6);
+    return;
+  }
+  const mi = Number((v >> 40n) & 255n);
+  if (mi) {
+    const def = MLST[mi - 1];
+    G.MNSTR = { ...def, hp: def.hp() };
+    SF(9);
+  }
+  const it = Number((v >> 24n) & 255n);
+  if (it) M2(ITEMSEEN[(it & 15) - 1]);
+}
+
+/* ===================== Drawing ===================== */
+function drw(v, s) {
+  if (v === 0n) v = 0xFFFFFn;
+  const has = m => (v & m) !== 0n;
+  if (has(0x10n)) gfx('T' + s);
+  if (has(0x20n)) gfx('B' + s);
+  if (has(G.L)) gfx('LP' + s);
+  if (has(G.L << 8n)) gfx('LD' + s);
+  if (has(G.L << 16n)) gfx('LH' + s);
+  if (has(G.R)) gfx('RP' + s);
+  if (has(G.R << 8n)) gfx('RD' + s);
+  if (has(G.R << 16n)) gfx('RH' + s);
+  if (has(0xFF000000n)) gfx('OB' + s);
+  if (has(G.F)) { gfx('FP' + s); return false; }
+  if (has(G.F << 8n)) { gfx('FD' + s); return false; }
+  return true;
+}
+function p3d() {
+  let [x, y] = [G.XLOC, G.YLOC];
+  if (drw(sget(x, y), 1) && FS(4)) {
+    [x, y] = move(x, y, G.FDIR);
+    if (drw(sget(x, y), 2)) {
+      [x, y] = move(x, y, G.FDIR);
+      drw(sget(x, y), 3);
+    }
+  }
+}
+function pstat() {
+  const sp = Math.floor(Math.min(94, Math.max(1, 94 * G.SP / G.MSP)));
+  const hp = Math.floor(Math.min(94, Math.max(1, 94 * G.HP / G.MHP)));
+  // "HP:" label, end ticks and bar
+  LneV(5, 33, 27); LneV(5, 35, 27); px(34, 29); LneV(5, 37, 27); LneV(3, 39, 27); px(38, 27); px(38, 29);
+  px(41, 28); px(41, 30); px(43, 27); px(43, 31);
+  LneH(hp, 43, 28); LneH(hp, 43, 29); LneH(hp, 43, 30);
+  // "SP:" label, end ticks and bar
+  LneH(3, 33, 21); LneH(3, 33, 25); LneF(3, 33, 22); LneV(5, 37, 21); LneV(3, 39, 21); px(38, 21); px(38, 23);
+  px(41, 22); px(41, 24); px(43, 21); px(43, 25);
+  LneH(sp, 43, 22); LneH(sp, 43, 23); LneH(sp, 43, 24);
+}
+function render() {
+  cls();
+  disp('      ' + G.MES1, 1);
+  disp('      ' + G.MES2, 2);
+  if (!FS(9)) p3d(); else { disp('Fight', 3); disp(G.MNSTR.name, 4); }
+  pstat();
+  blit();
+  G.MES1 = ''; G.MES2 = ''; G.dirty = false;
+  updatePanel();
+}
+
+/* ===================== Inventory picker (IPICK) ===================== */
+async function ipick(list, prompt) {
+  if (!list.length) { M1('You are carrying'); M2('nothing'); return 0; }
+  let p = 1;
+  pickList = list;
+  try {
+    for (;;) {
+      cls();
+      disp(prompt, 4);
+      for (let j = p, n = 1; j <= Math.min(p + 2, list.length); j++, n++) disp(n + ':' + itemName(list[j - 1]), n);
+      blit();
+      updatePanel();
+      const k = await getKey('pick');
+      let r = null;
+      if (typeof k === 'number') r = k;                          // clicked in the pack list
+      else if (k === '0' || k === '.') r = 0;
+      else if (k === '1' || k === '2' || k === '3') r = p + Number(k) - 1;
+      else if (k === 'DOWN') p = Math.max(1, Math.min(p + 1, list.length - 2));
+      else if (k === 'UP') p = Math.max(1, p - 1);
+      if (r !== null) return r > list.length ? 0 : r;
+    }
+  } finally { pickList = null; }
+}
+
+/* ===================== Using and removing items ===================== */
+async function iuse(p) {
+  const it = G.IVT.splice(p - 1, 1)[0];
+  const d = it.def;
+  switch (d.type) {
+    case 1:   // wand: may run out of charge and turn into a used wand
+      G.IVT.unshift(d.keep > rnd() ? it : { def: LWAND[0], known: false });
+      await d.use();
+      break;
+    case 2:   // ring
+      if (G.RNG === 0n) { G.RNG = d.code; G.UIVT.unshift(it); d.on(); }
+      else { M1('Already using one'); G.IVT.unshift(it); }
+      break;
+    case 3:   // potion
+      if (d.undo) daemon(drl(3, 6), d.undo);
+      d.use();
+      break;
+    case 4:   // scroll
+      await d.use();
+      break;
+    case 5:   // weapon
+      if (G.WEP === 1) { G.WEP = d.dmg; G.UIVT.unshift(it); }
+      else { M1('Armed already'); G.IVT.unshift(it); }
+      break;
+    case 6:   // armour
+      if (G.ARM) { M1('Already armoured'); G.IVT.unshift(it); }
+      else { G.ARM = d.ac; G.UIVT.unshift(it); }
+      break;
+    case 7:   // food
+      G.HP = Math.min(G.HP + d.hp, G.MHP);
+      G.SP = Math.min(G.SP + d.sp, G.MSP);
+      break;
+    case 8:
+      M1('Cannot use gems'); G.IVT.unshift(it);
+      break;
+  }
+}
+async function irem() {
+  if (!G.UIVT.length) { M1('Nothing being used'); return; }
+  if (G.IVT.length > 25) { M1('Carrying too much'); return; }
+  const p = await ipick(G.UIVT, 'Remove which item?');
+  if (!p) return;
+  const it = G.UIVT.splice(p - 1, 1)[0];
+  G.IVT.push(it);
+  if (it.def.type === 2) { it.def.off(); G.RNG = 0n; }
+  else if (it.def.type === 5) G.WEP = 1;
+  else if (it.def.type === 6) G.ARM = 0;
+}
+
+/* ===================== Player commands (PMV) ===================== */
+function spell(minLvl, cost, what, dmgFn) {
+  if (G.LVL <= minLvl) { M1('Too low level'); M2('for ' + what); return; }
+  if (G.SP < cost) { M1('Not enough energy'); M2('for ' + what); return; }
+  dmgFn();
+}
+const ACTIONS = [
+  /* 1 forward */ () => {
+    if ((sget(G.XLOC, G.YLOC) & G.F) === 0n) {
+      G.OXLOC = G.XLOC; G.OYLOC = G.YLOC;
+      [G.XLOC, G.YLOC] = move(G.XLOC, G.YLOC, G.FDIR);
+      CF(6);
+      mspcl(G.XLOC, G.YLOC);
+    } else { beep(1000, .05); SF(2); }
+  },
+  /* 2 left  */ () => { G.FDIR = [4, 3, 1, 2][G.FDIR - 1]; SF(1); },
+  /* 3 right */ () => { G.FDIR = [3, 4, 2, 1][G.FDIR - 1]; SF(1); },
+  /* 4 about */ () => { G.FDIR = [2, 1, 4, 3][G.FDIR - 1]; SF(1); },
+  /* 5 search */ () => {
+    M1('Search');
+    const v = sget(G.XLOC, G.YLOC);
+    const secret = v & 0xF000n;
+    if (secret && rnd() < .1) {
+      const door = secret >> 4n, wall = secret >> 12n;
+      sput(G.XLOC, G.YLOC, ((v & ~wall) | door) & 0xFFFFFFFFFFFF0FFFn);
+      M2('Found something');
+    } else M2('Nothing');
+  },
+  /* 6 chill */ () => spell(12, 4, 'chill spell', () => {
+    M1('Cast chill spell'); G.SP -= 4;
+    let d = drl(7, 4) + G.LVL * 4; const r = G.MNSTR.res;
+    if (r & 2) d = Math.floor(d / 2); if (r & 8) d = Math.floor(d / 4);
+    mdam(d);
+  }),
+  /* 7 electric */ () => spell(4, 2, 'electric bolt', () => {
+    M1('Electric bolt'); G.SP -= 2;
+    let d = drl(3, 4) + G.LVL * 2; const r = G.MNSTR.res;
+    if (r & 4) d = Math.floor(d / 2); if (r & 8) d = Math.floor(d / 8);
+    mdam(d);
+  }),
+  /* 8 fireball */ () => spell(8, 3, 'fireball', () => {
+    M1('Fireball spell'); G.SP -= 3;
+    let d = drl(5, 4) + G.LVL * 3; const r = G.MNSTR.res;
+    if (r & 1) d = Math.floor(d / 2); if (r & 8) d = Math.floor(d / 4);
+    mdam(d);
+  }),
+  /* 9 missile */ () => spell(0, 1, 'magic missile', () => {
+    M1('Magic missile'); G.SP -= 1;
+    mdam(G.MNSTR.res & 8 ? 0 : drl(G.LVL, 4));
+  }),
+  /* 10 heal */ () => {
+    M1('Heal');
+    const t = Math.max(0, Math.min(G.SP, G.MHP - G.HP));
+    G.SP -= t; G.HP += t;
+  },
+  /* 11 use */ async () => { const p = await ipick(G.IVT, 'Use which?'); if (p) await iuse(p); },
+  /* 12 remove */ irem,
+  /* 13 flee */ () => {
+    if (1 / (G.DPTH + 1) > rnd() || FS(6)) M1('Could not escape');
+    else { M1('Got away'); SF(6); CF(9); G.XLOC = G.OXLOC; G.YLOC = G.OYLOC; mspcl(G.XLOC, G.YLOC); }
+  },
+  /* 14 inventory */ async () => { await ipick(G.IVT, 'Press . to continue'); },
+  /* 15 ascend */ () => {
+    if (!(sget(G.XLOC, G.YLOC) & 0x10n)) M1('Cannot ascend');
+    else { G.DPTH -= 1; SF(6); mspcl(G.XLOC, G.YLOC); }
+  },
+  /* 16 descend */ () => {
+    if (!(sget(G.XLOC, G.YLOC) & 0x20n)) M1('Cannot descend');
+    else { G.DPTH += 1; SF(6); mspcl(G.XLOC, G.YLOC); }
+  },
+  /* 17 get */ () => {
+    const v = sget(G.XLOC, G.YLOC);
+    const it = Number((v >> 24n) & 255n);
+    if (!it) M1('Nothing to get');
+    else if (G.IVT.length > 25) M1('Carrying too much');
+    else {
+      M1('Taken stored');
+      G.IVT.push(itemFromCode(it));
+      M2('as item ' + String.fromCharCode(64 + G.IVT.length));
+      sput(G.XLOC, G.YLOC, v & 0xFFFFFFFF00FFFFFFn);
+    }
+  },
+  /* 18 drop */ async () => {
+    const v = sget(G.XLOC, G.YLOC);
+    if (v & 0xFF000000n) { M1('Something here'); M2('already'); return; }
+    const p = await ipick(G.IVT, 'Drop which?');
+    if (!p) return;
+    const it = G.IVT.splice(p - 1, 1)[0];
+    sput(G.XLOC, G.YLOC, sget(G.XLOC, G.YLOC) | it.def.code);
+  },
+  /* 19 redraw (attack in a fight) */ () => {},
+  /* 20 rest */ () => {
+    G.HP = Math.min(G.HP + 1, G.MHP); G.SP = Math.min(G.SP + 1, G.MSP); M1('Resting');
+  },
+  /* 21 locate */ () => {
+    if (G.SP <= 0) { M1('No energy for'); M2('location spell'); return; }
+    if (FS(5)) { M1('You are really'); M2('lost'); return; }
+    M1('Facing ' + ['north', 'south', 'east', 'west'][G.FDIR - 1]);
+    M2('N=' + G.YLOC + ' E=' + G.XLOC + ' D=' + G.DPTH);
+    G.SP -= 1;
+  },
+  /* 22 back */ () => {
+    if (FS(6)) M1('Cannot backup');
+    else { SF(6); G.XLOC = G.OXLOC; G.YLOC = G.OYLOC; mspcl(G.XLOC, G.YLOC); }
+  },
+  /* 23 quit */ () => { SF(3); SF(2); }
+];
+const KEYS_COMBAT = "?????CEFMHU?'?????0???+";
+const KEYS_ADV    = "8465S????HUR?IAD*/0.L2+";
+
+async function pmv(k) {
+  const keys = FS(9) ? KEYS_COMBAT : KEYS_ADV;
+  const i = (k.length === 1 && k !== '?') ? keys.indexOf(k) : -1;
+  if (i < 0) { beep(3000, .05); return; }
+  await ACTIONS[i]();
+  if (FS(3)) return;
+  if (FS(1)) {
+    CF(1);
+    G.F = [8n, 4n, 2n, 1n][G.FDIR - 1];
+    G.L = [1n, 2n, 8n, 4n][G.FDIR - 1];
+    G.R = [2n, 1n, 4n, 8n][G.FDIR - 1];
+  }
+  if (FS(2)) CF(2); else render();
+}
+
+/* ===================== Main loop (PLAY) ===================== */
+let gen = 0;
+const ABORT = { abort: true };
+async function play() {
+  const my = ++gen;
+  setup();
+  clearLog();
+  document.getElementById('over').classList.remove('show');
+  render();
+  try {
+    while (!FS(3)) {
+      if (!FS(9)) {
+        G.TME += 1;
+        edmd();
+        if (FS(8)) G.HP = Math.min(G.HP + 1, G.MHP);
+        if (FS(3)) break;
+      }
+      G.tick += 1;
+      // Speed: [player gets a turn, monster gets a turn]
+      const pTurn = G.SPD < 0 ? G.tick % 2 : 1;
+      const mTurn = G.SPD > 0 ? G.tick % 2 : 1;
+      if (mTurn && FS(9)) matk();
+      if (FS(3)) break;
+      if (pTurn) {
+        const k = await getKey('main');
+        if (my !== gen) return;
+        newLogTurn();
+        await pmv(k);
+        if (FS(9) && FS(7) && !FS(3)) patk();
+      }
+    }
+  } catch (e) { if (e === ABORT) return; throw e; }
+  gameOver();
+}
+
+function gameOver() {
+  G.over = true;
+  if (G.dirty) render();
+  cls();
+  disp(G.HP < 0 ? 'You died' : 'Score = ' + G.LVL * 100, 1);
+  blit();
+  stopTimer();
+  const gems = G.IVT.concat(G.UIVT).filter(it => it.def.type === 8);
+  const worth = gems.reduce((t, it) => t + it.def.value(), 0);
+  document.getElementById('overText').innerHTML =
+    '<b>' + (G.HP < 0 ? 'You died.' : 'Game over.') + '</b> Level ' + G.LVL + ' &middot; score ' + (G.LVL * 100) +
+    (gems.length ? ' &middot; ' + gems.length + ' gem' + (gems.length > 1 ? 's' : '') + ' worth ' + worth.toLocaleString() + ' gold' : '');
+  document.getElementById('over').classList.add('show');
+  updatePanel();
+}
+
+/* ===================== Input ===================== */
+let waiting = null;      // { mode, resolve }
+let pickList = null;
+let timerId = null;
+
+function getKey(mode) {
+  if (mode === 'main' && G.dirty) render();
+  return new Promise((resolve, reject) => {
+    waiting = { mode, resolve, reject };
+    updatePanel();
+    startTimer();
+  });
+}
+function press(k) {
+  if (!waiting) return;
+  const w = waiting;
+  waiting = null;
+  stopTimer();
+  if (w.mode === 'main') { CF(7); if (k === '0') SF(7); }
+  w.resolve(k);
+}
+
+const TIMEOUT = 3000;
+function timerMode() { return document.getElementById('optTimer').value; }
+function startTimer() {
+  stopTimer();
+  if (!waiting || waiting.mode !== 'main' || document.hidden) return;
+  const m = timerMode();
+  if (m === 'off' || (m === 'combat' && !FS(9))) return;
+  const bar = document.getElementById('timerBar');
+  bar.style.transition = 'none'; bar.style.width = '100%';
+  void bar.offsetWidth;
+  bar.style.transition = 'width ' + TIMEOUT + 'ms linear'; bar.style.width = '0%';
+  document.getElementById('timerLabel').textContent = FS(9) ? 'Attacking automatically if idle…' : 'Resting automatically if idle…';
+  timerId = setTimeout(() => { timerId = null; press(FS(9) ? '0' : '.'); }, TIMEOUT);
+}
+function stopTimer() {
+  if (timerId) clearTimeout(timerId);
+  timerId = null;
+  const bar = document.getElementById('timerBar');
+  bar.style.transition = 'none'; bar.style.width = '0';
+  document.getElementById('timerLabel').textContent = '';
+}
+document.addEventListener('visibilitychange', () => { if (document.hidden) stopTimer(); else startTimer(); });
+document.getElementById('optTimer').addEventListener('change', () => { saveOpts(); startTimer(); });
+
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.target.closest && e.target.closest('select, input, textarea')) return;
+  if (G && G.over) { if (e.key === 'Enter') { e.preventDefault(); play(); } return; }
+  const picking = waiting && waiting.mode === 'pick';
+  let k = e.key;
+  const map = picking
+    ? { ArrowUp: 'UP', ArrowDown: 'DOWN', Escape: '.', Backspace: '.' }
+    : { ArrowUp: '8', ArrowDown: '2', ArrowLeft: '4', ArrowRight: '6', ' ': '0', '"': "'" };
+  if (map[k]) k = map[k];
+  else if (k.length === 1) k = k.toUpperCase();
+  else return;
+  e.preventDefault();
+  unlockAudio();
+  press(k);
+});
+document.getElementById('keys').addEventListener('click', e => {
+  const b = e.target.closest('button[data-key]');
+  if (!b || b.disabled) return;
+  unlockAudio();
+  const k = b.dataset.key;
+  if (k === '+' && !confirm('Quit this game?')) return;
+  press(k);
+});
+document.getElementById('pack').addEventListener('click', e => {
+  const li = e.target.closest('li[data-i]');
+  if (li && waiting && waiting.mode === 'pick' && pickList === G.IVT) press(Number(li.dataset.i));
+});
+document.getElementById('inuse').addEventListener('click', e => {
+  const li = e.target.closest('li[data-i]');
+  if (li && waiting && waiting.mode === 'pick' && pickList === G.UIVT) press(Number(li.dataset.i));
+});
+function newGame() {
+  if (G && !G.over && !confirm('Start a new game? This one will be lost.')) return;
+  if (waiting) { const w = waiting; waiting = null; w.reject(ABORT); }
+  stopTimer();
+  play();
+}
+document.getElementById('newGame').addEventListener('click', newGame);
+document.getElementById('newGame2').addEventListener('click', newGame);
+
+/* ===================== Sound ===================== */
+let actx = null;
+function unlockAudio() {
+  if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
+  if (actx && actx.state === 'suspended') actx.resume();
+}
+function beep(freq, dur) {
+  if (!document.getElementById('optSound').checked || !actx) return;
+  try {
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = 'square'; o.frequency.value = freq; g.gain.value = 0.06;
+    o.connect(g); g.connect(actx.destination);
+    o.start(); o.stop(actx.currentTime + Math.max(dur, 0.06));
+  } catch (e) {}
+}
+
+/* ===================== Side panel ===================== */
+const logEl = document.getElementById('log');
+let turnLine = null, lastText = '', repeat = 1;
+function clearLog() { logEl.innerHTML = ''; turnLine = null; lastText = ''; repeat = 1; }
+function newLogTurn() { turnLine = null; }
+function logMsg(s) {
+  if (!turnLine) { turnLine = { parts: [], el: null }; }
+  turnLine.parts.push(String(s).trim());
+  const text = turnLine.parts.join(' ');
+  if (!turnLine.el) {
+    if (text === lastText && logEl.lastChild) { repeat += 1; turnLine.el = logEl.lastChild; turnLine.merged = true; }
+    else { repeat = 1; turnLine.el = document.createElement('div'); logEl.appendChild(turnLine.el); }
+  } else if (turnLine.merged) {
+    // this turn turned out different from the previous one: give it its own line
+    repeat -= 1;
+    turnLine.el.textContent = lastText + (repeat > 1 ? ' ×' + repeat : '');
+    turnLine.merged = false; repeat = 1;
+    turnLine.el = document.createElement('div'); logEl.appendChild(turnLine.el);
+  }
+  lastText = text;
+  turnLine.el.textContent = text + (repeat > 1 ? ' ×' + repeat : '');
+  while (logEl.childNodes.length > 200) logEl.removeChild(logEl.firstChild);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]); }
+function fillList(el, list) {
+  el.classList.toggle('pickable', pickList === list && !!waiting);
+  el.innerHTML = list.length
+    ? list.map((it, i) => '<li data-i="' + (i + 1) + '"><span class="n">' + (i + 1) + '</span><span>' + esc(itemName(it)) + '</span></li>').join('')
+    : '<li class="empty">Nothing</li>';
+}
+function updatePanel() {
+  if (!G) return;
+  const combat = FS(9);
+  document.getElementById('stats').innerHTML = [
+    ['Level', G.LVL], ['Experience', G.EXPS], ['Armour', G.ARM],
+    ['Hit points', Math.max(G.HP, 0) + ' / ' + G.MHP], ['Spell energy', G.SP + ' / ' + G.MSP], ['State', G.over ? 'Game over' : combat ? 'Fighting' : 'Exploring']
+  ].map(([k, v]) => '<div><span>' + k + '</span>' + esc(v) + '</div>').join('');
+  fillList(document.getElementById('pack'), G.IVT);
+  fillList(document.getElementById('inuse'), G.UIVT);
+  const picking = !!waiting && waiting.mode === 'pick';
+  document.getElementById('calc').classList.toggle('picking', picking);
+  document.getElementById('pickHint').textContent = picking ? '— click an item to pick it' : '';
+  // Enable the keys that do something right now
+  const valid = combat ? KEYS_COMBAT : KEYS_ADV;
+  document.querySelectorAll('.mainkeys button[data-key]').forEach(b => {
+    b.disabled = G.over || !valid.includes(b.dataset.key);
+  });
+  document.querySelector('#key0 small').textContent = combat ? 'Attack' : 'Redraw';
+}
+
+/* ===================== Options ===================== */
+function saveOpts() {
+  try {
+    localStorage.setItem('HP28ADV_opts', JSON.stringify({
+      timer: document.getElementById('optTimer').value, sound: document.getElementById('optSound').checked }));
+  } catch (e) {}
+}
+try {
+  const o = JSON.parse(localStorage.getItem('HP28ADV_opts') || 'null');
+  if (o) { document.getElementById('optTimer').value = o.timer || 'always'; document.getElementById('optSound').checked = o.sound !== false; }
+} catch (e) {}
+document.getElementById('optSound').addEventListener('change', saveOpts);
+
+play();
+</script>
+</body>
+</html>
