@@ -661,15 +661,26 @@ const SPECIAL = ['Light mist in air', 'Dart', 'Crossbow bolt', 'Lightning bolt',
 
 /* ===================== Sparse map access ===================== */
 function loadMap() {
-  return MAPDATA.map(s => {
+  return fixMap(MAPDATA.map(s => {
     const m = new Map();
     for (const c of s.trim().split(/\s+/)) {
       const [x, y, v] = c.split(',');
       m.set(x + ',' + y, BigInt('0x' + v));
     }
     return m;
-  });
+  }));
 }
+/* Fix a mistake in the original map data (also applied to saved games).
+   Level 3, square (6,0) had its walls and doors swapped: doors S and W led off the map
+   and the Magi's room next door could never be reached. It should be walls S and W,
+   doors N and E (matching the doors of its neighbours to the north and east). */
+function fixMap(levels) {
+  const l3 = levels[2], k = '6,0', v = l3 && l3.get(k);
+  if (v !== undefined && (v & 0xFFFn) === 0x50An) l3.set(k, (v & ~0xFFFn) | 0xA05n);
+  return levels;
+}
+// Is there a square here on the current level?
+function onMap(x, y) { return G.LVLS[G.DPTH - 1].has(x + ',' + y); }
 function sget(x, y) { return G.LVLS[G.DPTH - 1].get(x + ',' + y) || 0n; }
 function sput(x, y, v) { G.LVLS[G.DPTH - 1].set(x + ',' + y, v); }
 function move(x, y, dir) { return [[x, y + 1], [x, y - 1], [x + 1, y], [x - 1, y]][dir - 1]; }  // N S E W
@@ -968,7 +979,8 @@ function spell(minLvl, cost, what, dmgFn) {
 }
 const ACTIONS = [
   /* 1 forward */ () => {
-    if ((sget(G.XLOC, G.YLOC) & G.F) === 0n) {
+    const ahead = move(G.XLOC, G.YLOC, G.FDIR);
+    if ((sget(G.XLOC, G.YLOC) & G.F) === 0n && onMap(ahead[0], ahead[1])) {
       G.OXLOC = G.XLOC; G.OYLOC = G.YLOC;
       [G.XLOC, G.YLOC] = move(G.XLOC, G.YLOC, G.FDIR);
       CF(6);
@@ -1103,6 +1115,7 @@ async function play(saved) {
     logMsg('Game loaded');
     const ids = [...new Set(G.loadIdentified || [])];
     if (ids.length) { newLogTurn(); logMsg('Identified: ' + ids.join(', ')); }
+    if (G.rescued) { newLogTurn(); logMsg('You were outside the maze; moved back to the last square you were on (E ' + G.rescued[0] + ', N ' + G.rescued[1] + ')'); }
   }
   document.getElementById('over').classList.remove('show');
   render();
@@ -1310,6 +1323,22 @@ function restoreGame(s) {
   }
   G.trail = [0, 1, 2].map(i => (s.trail && s.trail[i]) || []);
   G.last = s.last || null;
+  fixMap(G.LVLS);
+  // Squares that aren't part of the maze come off your map
+  G.seen.forEach((set, d) => { for (const k of [...set]) if (!G.LVLS[d].has(k)) set.delete(k); });
+  G.trail = G.trail.map((tr, d) => tr.map(pt => pt && G.LVLS[d].has(pt[0] + ',' + pt[1]) ? pt : null));
+  // Standing outside the maze (possible before this fix): go back to the last real square you were on
+  G.rescued = null;
+  if (!onMap(G.XLOC, G.YLOC)) {
+    const tr = G.trail[G.DPTH - 1];
+    let back = null;
+    for (let i = tr.length - 1; i >= 0 && !back; i--) if (tr[i]) back = tr[i];
+    if (!back) back = [...G.LVLS[G.DPTH - 1].keys()][0].split(',').map(Number);
+    G.XLOC = back[0]; G.YLOC = back[1];
+    G.OXLOC = G.XLOC; G.OYLOC = G.YLOC; SF(6);
+    G.last = null;
+    G.rescued = back;
+  }
   G.F = [8n, 4n, 2n, 1n][G.FDIR - 1]; G.L = [1n, 2n, 8n, 4n][G.FDIR - 1]; G.R = [2n, 1n, 4n, 8n][G.FDIR - 1];
   mapView = 0;
 }
@@ -1430,7 +1459,8 @@ function drawMap() {
     const x0 = X(x), y0 = Y(y), x1 = x0 + cs, y1 = y0 + cs;
     const edges = [[8n, x0, y0, x1, y0], [4n, x0, y1, x1, y1], [2n, x1, y0, x1, y1], [1n, x0, y0, x0, y1]];
     for (const [bit, ax, ay, bx, by] of edges) {
-      const wall = (v & bit) !== 0n, door = (v & (bit << 8n)) !== 0n;
+      const nb = bit === 8n ? [x, y + 1] : bit === 4n ? [x, y - 1] : bit === 2n ? [x + 1, y] : [x - 1, y];
+      const wall = (v & bit) !== 0n || !lv.has(nb[0] + ',' + nb[1]), door = !wall && (v & (bit << 8n)) !== 0n;
       if (!wall && !door) continue;
       c.strokeStyle = '#d8c8a0'; c.lineWidth = lw; c.lineCap = 'square';
       c.beginPath();

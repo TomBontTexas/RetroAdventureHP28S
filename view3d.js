@@ -416,8 +416,8 @@ const V3 = (() => {
   function buildGrid() {
     gx0 = G.XLOC - GR; gy0 = G.YLOC - GR;
     for (let j = 0; j < GN; j++) for (let i = 0; i < GN; i++) {
-      const v = sget(gx0 + i, gy0 + j);
-      grid[j * GN + i] = v === 0n ? -1 : Number(v & 0xFFFFn) | (Number((v >> 24n) & 15n) << 16);
+      const v = G.LVLS[G.DPTH - 1].get((gx0 + i) + ',' + (gy0 + j));
+      grid[j * GN + i] = v === undefined ? -1 : Number(v & 0xFFFFn) | (Number((v >> 24n) & 15n) << 16);
     }
     if (grid[GR * GN + GR] < 0) grid[GR * GN + GR] = 0xF;    // off the map: the original drew all walls
   }
@@ -463,9 +463,9 @@ const V3 = (() => {
         if (tmx < tmy) { tt = tmx; ax = 0; bit = rx > 0 ? 2 : 1; } else { tt = tmy; ax = 1; bit = ry > 0 ? 8 : 4; }
         if (tt > MAXD) break;
         if (v & bit) { t = tt; kind = 1; axis = ax; break; }
-        if (v & (bit << 8)) { t = tt; kind = 2; axis = ax; break; }
         const nx = ax === 0 ? mx + (rx > 0 ? 1 : -1) : mx, ny = ax === 1 ? my + (ry > 0 ? 1 : -1) : my;
-        if (cell(nx, ny) < 0) { t = tt; kind = 1; axis = ax; break; }
+        if (cell(nx, ny) < 0) { t = tt; kind = 1; axis = ax; break; }     // nothing there: solid rock
+        if (v & (bit << 8)) { t = tt; kind = 2; axis = ax; break; }
         mx = nx; my = ny;
         if (ax === 0) tmx += tdx; else tmy += tdy;
       }
