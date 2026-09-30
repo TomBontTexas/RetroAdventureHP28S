@@ -25,7 +25,12 @@
   html, body { margin: 0; background: var(--bg); color: var(--text);
     font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
   .wrap { max-width: 1180px; margin: 0 auto; padding: 16px; }
-  header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .hdr-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .hbtn { font: 600 13px system-ui, sans-serif; background: var(--key); color: var(--text); border: 1px solid #56514b;
+    border-radius: 7px; padding: 5px 12px; cursor: pointer; }
+  .hbtn:hover:not(:disabled) { background: var(--key-hi); border-color: var(--accent); }
+  .hbtn:disabled { opacity: .4; cursor: default; }
   h1 { font-size: 20px; margin: 0; letter-spacing: .02em; }
   h1 span { color: var(--accent); }
   .ver { color: var(--muted); font-size: 13px; }
@@ -171,7 +176,12 @@
 <div class="wrap">
   <header>
     <h1>HP-28S <span>3D Adventure</span></h1>
-    <div class="ver">Version <span id="ver"></span></div>
+    <div class="hdr-right">
+      <button type="button" class="hbtn" id="saveBtn" title="Download this game as a file">&#128190; Save</button>
+      <button type="button" class="hbtn" id="loadBtn" title="Continue a game from a saved file">&#128194; Load</button>
+      <input type="file" id="loadFile" accept=".json,application/json" hidden>
+      <span class="ver">Version <span id="ver"></span></span>
+    </div>
   </header>
 
   <div class="calc grid" id="calc">
@@ -994,14 +1004,26 @@ async function pmv(k) {
 /* ===================== Main loop (PLAY) ===================== */
 let gen = 0;
 const ABORT = { abort: true };
-async function play() {
+async function play(saved) {
   const my = ++gen;
   setup();
+  if (saved) restoreGame(saved);
   clearLog();
+  if (saved) logMsg('Game loaded');
   document.getElementById('over').classList.remove('show');
   render();
+  let resume = !!saved;          // a loaded game carries on with your move, without an extra tick
   try {
     while (!FS(3)) {
+      if (resume) {
+        resume = false;
+        const k = await getKey('main');
+        if (my !== gen) return;
+        newLogTurn();
+        await pmv(k);
+        if (FS(9) && FS(7) && !FS(3)) patk();
+        continue;
+      }
       if (!FS(9)) {
         G.TME += 1;
         edmd();
@@ -1129,6 +1151,87 @@ function newGame() {
 }
 document.getElementById('newGame').addEventListener('click', newGame);
 document.getElementById('newGame2').addEventListener('click', newGame);
+
+/* ===================== Save and load ===================== */
+const APP_TAG = 'HP28ADV';
+const SAVE_FORMAT = 1;
+const itemCode = it => Number(it.def.code >> 24n);
+function snapshot() {
+  const wep = G.WEP === 1 ? null : G.UIVT.find(it => it.def.type === 5 && it.def.dmg === G.WEP);
+  const potion = fn => LPOT.find(d => d.undo === fn);
+  return {
+    flags: [...flags],
+    HP: G.HP, SP: G.SP, MHP: G.MHP, MSP: G.MSP, SPD: G.SPD, ARM: G.ARM,
+    XLOC: G.XLOC, YLOC: G.YLOC, OXLOC: G.OXLOC, OYLOC: G.OYLOC,
+    LVL: G.LVL, EXPS: G.EXPS, DPTH: G.DPTH, FDIR: G.FDIR, TME: G.TME, tick: G.tick,
+    RNG: G.RNG.toString(16), WEP: wep ? itemCode(wep) : 1,
+    IVT: G.IVT.map(it => [itemCode(it), it.known ? 1 : 0]),
+    UIVT: G.UIVT.map(it => [itemCode(it), it.known ? 1 : 0]),
+    LVLS: G.LVLS.map(m => [...m].map(([k, v]) => k + ',' + v.toString(16))),
+    DMD: G.DMD.map(d => d.fn === poison ? { n: d.n, poison: 1 } : potion(d.fn) ? { n: d.n, undo: Number(potion(d.fn).code >> 24n) } : null).filter(Boolean),
+    MNSTR: FS(9) && G.MNSTR ? { i: G.MNSTR.idx, hp: G.MNSTR.hp } : null,
+    seen: G.seen.map(s => [...(s || [])]), trail: G.trail, last: G.last
+  };
+}
+function restoreGame(s) {
+  flags.clear(); s.flags.forEach(n => SF(Number(n)));
+  for (const k of ['HP', 'SP', 'MHP', 'MSP', 'SPD', 'ARM', 'XLOC', 'YLOC', 'OXLOC', 'OYLOC', 'LVL', 'EXPS', 'DPTH', 'FDIR', 'TME', 'tick'])
+    G[k] = Number(s[k]) || 0;
+  G.RNG = BigInt('0x' + (s.RNG || '0'));
+  const item = ([c, k]) => Object.assign(itemFromCode(c), { known: !!k });
+  G.IVT = s.IVT.map(item);
+  G.UIVT = s.UIVT.map(item);
+  G.WEP = 1;
+  if (s.WEP !== 1) { const w = G.UIVT.find(it => itemCode(it) === s.WEP); if (w) G.WEP = w.def.dmg; }
+  G.LVLS = s.LVLS.map(cells => {
+    const m = new Map();
+    for (const c of cells) { const [x, y, v] = c.split(','); m.set(x + ',' + y, BigInt('0x' + v)); }
+    return m;
+  });
+  G.DMD = (s.DMD || []).map(d => d.poison ? { n: d.n, fn: poison } : { n: d.n, fn: itemFromCode(d.undo).def.undo }).filter(d => d.fn);
+  if (s.MNSTR && MLST[s.MNSTR.i]) G.MNSTR = { ...MLST[s.MNSTR.i], hp: s.MNSTR.hp }; else { G.MNSTR = null; CF(9); }
+  G.seen = [0, 1, 2].map(i => new Set((s.seen && s.seen[i]) || []));
+  G.trail = [0, 1, 2].map(i => (s.trail && s.trail[i]) || []);
+  G.last = s.last || null;
+  G.F = [8n, 4n, 2n, 1n][G.FDIR - 1]; G.L = [1n, 2n, 8n, 4n][G.FDIR - 1]; G.R = [2n, 1n, 4n, 8n][G.FDIR - 1];
+  mapView = 0;
+}
+function canSave() { return G && !G.over && waiting && waiting.mode === 'main'; }
+function saveGame() {
+  if (!canSave()) return;
+  const data = { app: APP_TAG, format: SAVE_FORMAT, version: window.APP_VERSION, saved: new Date().toISOString(), game: snapshot() };
+  const d = new Date(), pad = n => String(n).padStart(2, '0');
+  const name = APP_TAG + '_Level' + G.LVL + '_' + d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) +
+    '_' + pad(d.getHours()) + pad(d.getMinutes()) + '.json';
+  const url = URL.createObjectURL(new Blob([JSON.stringify(data)], { type: 'application/json' }));
+  const a = document.createElement('a');
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  newLogTurn(); logMsg('Game saved as ' + name);
+}
+function loadGame(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    let data;
+    try { data = JSON.parse(reader.result); } catch (e) { alert('That file is not a saved game.'); return; }
+    if (!data || data.app !== APP_TAG || !data.game || !Array.isArray(data.game.LVLS)) {
+      alert('That file is not a saved HP-28S 3D Adventure game.'); return;
+    }
+    if (G && !G.over && !confirm('Load this saved game? The game you are playing now will be lost.')) return;
+    if (waiting) { const w = waiting; waiting = null; w.reject(ABORT); }
+    stopTimer();
+    play(data.game).catch(() => { alert('Sorry, that saved game could not be loaded.'); play(); });
+  };
+  reader.readAsText(file);
+}
+document.getElementById('saveBtn').addEventListener('click', saveGame);
+document.getElementById('loadBtn').addEventListener('click', () => document.getElementById('loadFile').click());
+document.getElementById('loadFile').addEventListener('change', e => {
+  const f = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if (f) loadGame(f);
+});
 
 /* ===================== Sound ===================== */
 let actx = null;
@@ -1300,6 +1403,7 @@ function fillList(el, list) {
 }
 function updatePanel() {
   if (!G) return;
+  document.getElementById('saveBtn').disabled = !canSave();
   drawMap();
   const combat = FS(9);
   document.getElementById('stats').innerHTML = [
