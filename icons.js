@@ -205,8 +205,51 @@ const ICONS = (() => {
   I.cancel = p => svg(p, bg(p, '#8a2a1e', '#1e0604'), `
     <g stroke-linecap="round"><path d="M16 16 L48 48 M48 16 L16 48" stroke="#1a0402" stroke-width="14"/>
     <path d="M16 16 L48 48 M48 16 L16 48" stroke="#ff5a3a" stroke-width="8"/></g>`);
+  // Item types (inventory manager), by item type number 1..8
+  I.tWand = p => svg(p, bg(p, '#5a3a8a', '#12081e') + glow(p), `
+    <path d="M12 54 L46 18" stroke="#1a0e04" stroke-width="9" stroke-linecap="round"/>
+    <path d="M12 54 L46 18" stroke="#8a5a2a" stroke-width="5" stroke-linecap="round"/>
+    <circle cx="48" cy="16" r="10" fill="#b8d0ff" filter="url(#${p}gl)"/>
+    <path d="M48 4 L51 13 L60 16 L51 19 L48 28 L45 19 L36 16 L45 13 z" fill="#ffffff"/>`);
+  I.tRing = p => svg(p, bg(p, '#2a4a7a', '#060c18') + lin(p + 'au', '#fff1b0', '#b8781a'), `
+    <ellipse cx="32" cy="40" rx="18" ry="13" fill="none" stroke="#1a0e02" stroke-width="10"/>
+    <ellipse cx="32" cy="40" rx="18" ry="13" fill="none" stroke="url(#${p}au)" stroke-width="6"/>
+    <path d="M24 22 l8 -10 l8 10 l-8 8 z" fill="#e0304a" stroke="#4a0610" stroke-width="2"/>
+    <path d="M28 20 l4 -5" stroke="#fff" stroke-width="2" opacity=".7"/>`);
+  I.tPotion = I.use;
+  I.tScroll = p => svg(p, bg(p, '#7a5a2a', '#1a1004') + lin(p + 'pp', '#fff6dc', '#d8c08a'), `
+    <rect x="14" y="16" width="36" height="34" fill="url(#${p}pp)" stroke="#5a3a14" stroke-width="2"/>
+    <ellipse cx="14" cy="33" rx="6" ry="18" fill="#e8d6a8" stroke="#5a3a14" stroke-width="2"/>
+    <ellipse cx="50" cy="33" rx="6" ry="18" fill="#e8d6a8" stroke="#5a3a14" stroke-width="2"/>
+    <g stroke="#8a6a3a" stroke-width="2"><line x1="22" y1="25" x2="42" y2="25"/><line x1="22" y1="32" x2="42" y2="32"/><line x1="22" y1="39" x2="36" y2="39"/></g>
+    <circle cx="40" cy="46" r="5" fill="#b02a1a" stroke="#4a0a04" stroke-width="1.5"/>`);
+  I.tWeapon = p => svg(p, bg(p, '#6a6a7a', '#10101a') + lin(p + 'bl', '#ffffff', '#8a94a0', 1, 0) + lin(p + 'au', '#fff1b0', '#b8781a'), `
+    <path d="M50 6 l8 0 l0 8 l-32 32 l-8 -8 z" fill="url(#${p}bl)" stroke="#1a1a20" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M14 36 l14 14" stroke="url(#${p}au)" stroke-width="6" stroke-linecap="round"/>
+    <path d="M20 44 l-10 10" stroke="#4a2a10" stroke-width="7" stroke-linecap="round"/>
+    <circle cx="8" cy="56" r="4" fill="url(#${p}au)" stroke="#3a2406" stroke-width="1.5"/>`);
+  I.tArmour = p => svg(p, bg(p, '#4a6a7a', '#0a1418') + lin(p + 'st', '#e8eef4', '#5a6470', .6, 1), `
+    <path d="M12 16 l11 -5 q9 7 18 0 l11 5 l-2 16 q-2 20 -18 28 q-16 -8 -18 -28 z" fill="url(#${p}st)" stroke="#1a2026" stroke-width="2.5"/>
+    <path d="M32 16 v42" stroke="#3a444e" stroke-width="2"/><path d="M17 28 q15 7 30 0" stroke="#3a444e" stroke-width="2" fill="none"/>`);
+  I.tFood = p => svg(p, bg(p, '#7a4a1a', '#1a0c04') + rad(p + 'br', [[0, '#f0c070'], [.7, '#c8822e'], [1, '#7a4610']]), `
+    <path d="M8 42 q0 -20 24 -22 q24 2 24 22 q0 8 -8 8 h-32 q-8 0 -8 -8 z" fill="url(#${p}br)" stroke="#3a1e06" stroke-width="2.5"/>
+    <g stroke="#7a4610" stroke-width="2.5" stroke-linecap="round"><path d="M20 30 l5 8"/><path d="M30 27 l5 9"/><path d="M40 28 l5 8"/></g>`);
+  I.tGem = p => svg(p, bg(p, '#1a5a6a', '#041216') + glow(p), `
+    <polygon points="32,56 8,26 18,12 46,12 56,26" fill="#5fe0e0" filter="url(#${p}gl)" opacity=".7"/>
+    <polygon points="32,56 8,26 18,12 46,12 56,26" fill="#5fe0e0" stroke="#0a4a4a" stroke-width="2"/>
+    <polygon points="18,12 32,26 46,12" fill="#b0ffff"/><polygon points="8,26 32,26 32,56" fill="#3ab8c0"/>
+    <line x1="8" y1="26" x2="56" y2="26" stroke="#0a4a4a" stroke-width="1.5"/>`);
+  // Inventory actions
+  I.aUse = p => svg(p, bg(p, '#8a6a1a', '#1e1404') + glow(p), `
+    <circle cx="32" cy="32" r="18" fill="#ffd060" opacity=".45" filter="url(#${p}gl)"/>
+    <path d="M32 6 L37 27 L58 32 L37 37 L32 58 L27 37 L6 32 L27 27 z" fill="#fff4c0" stroke="#8a5a0a" stroke-width="2" stroke-linejoin="round"/>`);
+  I.aEquip = p => svg(p, bg(p, '#2a7a3a', '#041a08') + lin(p + 'st', '#e8eef4', '#6a7480', .6, 1), `
+    <path d="M14 12 l18 -6 l18 6 v14 q0 20 -18 30 q-18 -10 -18 -30 z" fill="url(#${p}st)" stroke="#1a2026" stroke-width="2.5"/>
+    <path d="M20 32 l9 9 l16 -18" fill="none" stroke="#0a2a0a" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M20 32 l9 9 l16 -18" fill="none" stroke="#7aff5a" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>`);
   return I;
 })();
+const TYPE_ICON = [null, 'tWand', 'tRing', 'tPotion', 'tScroll', 'tWeapon', 'tArmour', 'tFood', 'tGem'];
 
 // Which icon each keypad key gets
 const KEY_ICON = {

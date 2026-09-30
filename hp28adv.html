@@ -24,7 +24,7 @@
   * { box-sizing: border-box; }
   html, body { margin: 0; background: var(--bg); color: var(--text);
     font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  .wrap { max-width: 1180px; margin: 0 auto; padding: 16px; }
+  .wrap { max-width: 1560px; margin: 0 auto; padding: 16px; }
   header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
   .hdr-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .hbtn { font: 600 13px system-ui, sans-serif; background: var(--key); color: var(--text); border: 1px solid #56514b;
@@ -44,8 +44,10 @@
   .timer div { height: 100%; width: 0; background: var(--accent); }
   .timer-label { font-size: 12px; color: var(--muted); min-height: 18px; margin-top: 2px; }
 
-  .grid { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 16px; }
-  @media (max-width: 860px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+  .grid { display: grid; grid-template-columns: 270px minmax(0, 1fr) 320px; grid-template-areas: "inv main side"; gap: 16px; }
+  .grid > .invpanel { grid-area: inv; } .grid > .left { grid-area: main; } .grid > .panel { grid-area: side; }
+  @media (max-width: 1180px) { .grid { grid-template-columns: 250px minmax(0, 1fr); grid-template-areas: "inv main" "side side"; } }
+  @media (max-width: 860px) { .grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "main" "inv" "side"; } }
   .keys { margin-top: 8px; }
   .keys .row { grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 2px; }
   .keys .row + .row { margin-top: 2px; }
@@ -89,9 +91,9 @@
   #spFill { background: linear-gradient(90deg, #2a6ac8, #6ab0ff); }
   #hpFill { background: linear-gradient(90deg, #b02a1e, #ff6a4a); }
 
-  .keys h2, .panel h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em;
+  .keys h2, .panel h2, .invpanel h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em;
     color: var(--muted); margin: 10px 0 6px; font-weight: 600; }
-  .keys h2:first-child, .panel h2:first-child { margin-top: 0; }
+  .keys h2:first-child, .panel h2:first-child, .invpanel h2:first-child { margin-top: 0; }
   .row { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
   button.k { appearance: none; border: 0; background: transparent; color: var(--key-text); border-radius: 7px;
     padding: 4px 2px 5px; cursor: pointer; font: inherit; display: flex; flex-direction: column; align-items: center;
@@ -123,10 +125,32 @@
   .panel { background: #23211f; border: 1px solid var(--body-edge); border-radius: 10px; padding: 12px;
     display: flex; flex-direction: column; min-width: 0; }
   .mapbox { flex: 1 1 0; display: flex; flex-direction: column; min-height: 200px; }
-  @media (min-width: 861px) { .grid > .panel { contain: size; } }
-  .inv { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 10px; flex: none; }
-  #pack, #inuse { max-height: 104px; overflow-y: auto; }
-  ol.items li span:last-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* Side columns are as tall as the middle one; their lists scroll inside */
+  @media (min-width: 1181px) { .grid > .panel { contain: size; } }
+  @media (min-width: 861px) { .grid > .invpanel { contain: size; } }
+  .invpanel { background: #23211f; border: 1px solid var(--body-edge); border-radius: 10px; padding: 12px;
+    display: flex; flex-direction: column; min-width: 0; }
+  .invpanel h2 { flex: none; }
+  .eqlist, .invlist { list-style: none; margin: 0; padding: 0; }
+  .invlist { flex: 1 1 0; min-height: 160px; overflow-y: auto; }
+  @media (max-width: 860px) { .invlist { flex: none; max-height: 420px; } }
+  .irow { display: flex; align-items: center; gap: 8px; padding: 4px 4px; border-radius: 6px; min-width: 0; }
+  .irow:hover { background: #2c2925; }
+  .irow .slot { font-size: 11px; color: var(--muted); width: 44px; flex: none; }
+  .irow .nm { flex: 1; min-width: 0; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .irow .nm.none { color: var(--muted); font-style: italic; }
+  .ti, .ab { width: 28px; height: 28px; flex: none; border-radius: 4px; box-shadow: 0 0 0 1px #000, 0 0 0 2px #5a4a30; }
+  .ti svg, .ab svg { display: block; width: 100%; height: 100%; border-radius: 4px; }
+  .ti.empty { background: #1a1917; }
+  .acts { display: flex; gap: 5px; flex: none; }
+  .ab { width: 26px; height: 26px; padding: 0; border: 0; background: none; cursor: pointer; margin: 2px; }
+  .ab:hover:not(:disabled) { box-shadow: 0 0 0 1px #000, 0 0 0 2px #e8b84a, 0 0 8px rgba(255, 190, 60, .6); filter: brightness(1.15); }
+  .ab:active:not(:disabled) { transform: scale(.92); }
+  .ab:disabled { filter: grayscale(1) brightness(.45); cursor: default; }
+  .invempty { color: var(--muted); font-style: italic; font-size: 14px; padding: 4px; }
+  .picking .irow[data-pick] { cursor: pointer; background: #2f2c29; margin-bottom: 2px; }
+  .picking .irow[data-pick]:hover { background: #3e3a35; outline: 1px solid var(--accent); }
+  .picking .irow .acts { visibility: hidden; }
   .pickhint { color: var(--accent); font-size: 12px; flex: none; }
   .pickhint:empty { display: none; }
   .panel h2 { flex: none; }
@@ -142,12 +166,6 @@
   .lg-door { background: #b8742a; height: 7px !important; outline: 1px solid #2a1606; }
   .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px 10px; font-size: 14px; }
   .stats div span { color: var(--muted); font-size: 12px; display: block; }
-  ol.items { margin: 0; padding: 0; list-style: none; font-size: 14px; }
-  ol.items li { display: flex; gap: 6px; padding: 2px 4px; min-width: 0; border-radius: 5px; }
-  ol.items li .n { color: var(--muted); width: 1.6em; text-align: right; flex: none; font-variant-numeric: tabular-nums; }
-  ol.items li.empty { color: var(--muted); font-style: italic; }
-  .picking ol.pickable li:not(.empty) { cursor: pointer; background: #2f2c29; margin-bottom: 2px; }
-  .picking ol.pickable li:not(.empty):hover { background: #3e3a35; outline: 1px solid var(--accent); }
   .log { font: 13px/1.4 ui-monospace, Consolas, monospace; height: 96px; flex: none; overflow-y: auto;
     background: #1a1917; border-radius: 6px; padding: 6px 8px; }
   .log div { color: var(--muted); }
@@ -185,6 +203,13 @@
   </header>
 
   <div class="calc grid" id="calc">
+    <aside class="invpanel" id="invpanel" aria-label="Inventory">
+      <h2>Equipped</h2>
+      <ul class="eqlist" id="eqList"></ul>
+      <h2 style="margin-top:12px">Pack <span id="packCount" style="text-transform:none;letter-spacing:0"></span></h2>
+      <div id="pickHint" class="pickhint"></div>
+      <ul class="invlist" id="packList"></ul>
+    </aside>
     <div class="left">
     <div class="lcd-frame">
       <canvas id="lcd" width="685" height="160" aria-label="HP-28S display"></canvas>
@@ -246,7 +271,28 @@
           <p style="margin:8px 0 0"><button type="button" id="newGame2">New game</button></p>
         </div>
       </div>
-    <div class="opts">
+    </div>
+
+      <div class="panel">
+        <h2>Character</h2>
+        <div class="stats" id="stats"></div>
+        <h2>Messages</h2>
+        <div class="log" id="log"></div>
+        <div class="mapbox">
+          <h2>Map <span class="maptabs" id="mapTabs"></span></h2>
+          <canvas id="map" aria-label="Map of the squares you have visited"></canvas>
+          <div class="legend">
+            <span><i class="lg-path"></i>Your path</span>
+            <span><i class="lg-door"></i>Door</span>
+            <span><b style="color:#7ad85a">&#9650;</b>Ascend</span>
+            <span><b style="color:#ff9a3a">&#9660;</b>Descend</span>
+            <span><b style="color:#ff5a4a">&#10148;</b>You</span>
+          </div>
+        </div>
+      </div>
+  </div>
+
+  <div class="opts opts-below">
       <label>Idle timer
         <select id="optTimer">
           <option value="always">Original: 3 s idle = rest / attack</option>
@@ -262,31 +308,6 @@
       </label>
       <label><input type="checkbox" id="optSound" checked> Beeps</label>
       <button type="button" class="ghost" id="newGame">New game</button>
-    </div>
-    </div>
-
-      <div class="panel">
-        <h2>Character</h2>
-        <div class="stats" id="stats"></div>
-        <div class="inv">
-          <div><h2>Pack</h2><ol class="items" id="pack"></ol></div>
-          <div><h2>In use</h2><ol class="items" id="inuse"></ol></div>
-        </div>
-        <div id="pickHint" class="pickhint"></div>
-        <h2>Messages</h2>
-        <div class="log" id="log"></div>
-        <div class="mapbox">
-          <h2>Map <span class="maptabs" id="mapTabs"></span></h2>
-          <canvas id="map" aria-label="Map of the squares you have visited"></canvas>
-          <div class="legend">
-            <span><i class="lg-path"></i>Your path</span>
-            <span><i class="lg-door"></i>Door</span>
-            <span><b style="color:#7ad85a">&#9650;</b>Ascend</span>
-            <span><b style="color:#ff9a3a">&#9660;</b>Descend</span>
-            <span><b style="color:#ff5a4a">&#10148;</b>You</span>
-          </div>
-        </div>
-      </div>
   </div>
 
   <details>
@@ -580,7 +601,6 @@ LITEMS.forEach((list, t) => list.forEach((def, i) => {
 }));
 function itemFromCode(byte) { return { def: LITEMS[(byte & 15) - 1][((byte >> 4) & 15) - 1], known: false }; }
 function itemName(it) { return (it.known && it.def.real) ? it.def.real : it.def.name; }
-const ITEMSEEN = ['A wand', 'A ring', 'A vial', 'A scroll', 'A weapon', 'Some armour', 'Some food', 'A gemstone'];
 
 /* ===================== Monsters ===================== */
 function mrgn() { G.MNSTR.hp += 3; return 0; }             // troll regeneration
@@ -710,7 +730,7 @@ function mspcl(x, y) {
     SF(9);
   }
   const it = Number((v >> 24n) & 255n);
-  if (it) M2(ITEMSEEN[(it & 15) - 1]);
+  if (it) M2(itemFromCode(it).def.name);
 }
 
 /* ===================== Drawing ===================== */
@@ -857,6 +877,7 @@ async function iuse(p) {
     case 7:   // food
       G.HP = Math.min(G.HP + d.hp, G.MHP);
       G.SP = Math.min(G.SP + d.sp, G.MSP);
+      M1('Eaten'); M2(itemName(it));
       break;
     case 8:
       M1('Cannot use gems'); G.IVT.unshift(it);
@@ -867,12 +888,40 @@ async function irem() {
   if (!G.UIVT.length) { M1('Nothing being used'); return; }
   if (G.IVT.length > 25) { M1('Carrying too much'); return; }
   const p = await ipick(G.UIVT, 'Remove which item?');
-  if (!p) return;
-  const it = G.UIVT.splice(p - 1, 1)[0];
+  if (p) unequip(G.UIVT[p - 1]);
+}
+// Take off a worn / held item and put it back in the pack
+function unequip(it, swapping) {
+  if (!swapping && G.IVT.length > 25) { M1('Carrying too much'); return false; }
+  const i = G.UIVT.indexOf(it);
+  if (i < 0) return false;
+  G.UIVT.splice(i, 1);
   G.IVT.push(it);
   if (it.def.type === 2) { it.def.off(); G.RNG = 0n; }
   else if (it.def.type === 5) G.WEP = 1;
   else if (it.def.type === 6) G.ARM = 0;
+  return true;
+}
+// Wield / wear / put on, swapping out whatever is in that slot (one turn)
+async function equipItem(it) {
+  const t = it.def.type;
+  const worn = G.UIVT.find(u => u.def.type === t);
+  let bonus = 0;
+  if (worn) unequip(worn, true);
+  else if (t === 6 && G.ARM) { bonus = G.ARM; G.ARM = 0; }     // keep a Protection scroll's bonus
+  await iuse(G.IVT.indexOf(it) + 1);
+  if (t === 6) G.ARM += bonus;
+  if (t === 5) { M1(worn ? 'Swapped weapons' : 'Wielding'); M2(itemName(it)); }
+  if (t === 6) { M1(worn ? 'Swapped armour' : 'Wearing'); M2(itemName(it)); }
+}
+function dropItem(it) {
+  const v = sget(G.XLOC, G.YLOC);
+  if (v & 0xFF000000n) { M1('Something here'); M2('already'); return; }
+  const i = G.IVT.indexOf(it);
+  if (i < 0) return;
+  G.IVT.splice(i, 1);
+  sput(G.XLOC, G.YLOC, v | it.def.code);
+  M1('Dropped'); M2(itemName(it));
 }
 
 /* ===================== Player commands (PMV) ===================== */
@@ -952,9 +1001,10 @@ const ACTIONS = [
     if (!it) M1('Nothing to get');
     else if (G.IVT.length > 25) M1('Carrying too much');
     else {
-      M1('Taken stored');
-      G.IVT.push(itemFromCode(it));
-      M2('as item ' + String.fromCharCode(64 + G.IVT.length));
+      const item = itemFromCode(it);
+      G.IVT.push(item);
+      M1('Picked up');
+      M2(itemName(item));
       sput(G.XLOC, G.YLOC, v & 0xFFFFFFFF00FFFFFFn);
     }
   },
@@ -962,9 +1012,7 @@ const ACTIONS = [
     const v = sget(G.XLOC, G.YLOC);
     if (v & 0xFF000000n) { M1('Something here'); M2('already'); return; }
     const p = await ipick(G.IVT, 'Drop which?');
-    if (!p) return;
-    const it = G.IVT.splice(p - 1, 1)[0];
-    sput(G.XLOC, G.YLOC, sget(G.XLOC, G.YLOC) | it.def.code);
+    if (p) dropItem(G.IVT[p - 1]);
   },
   /* 19 redraw (attack in a fight) */ () => {},
   /* 20 rest */ () => {
@@ -987,10 +1035,13 @@ const KEYS_COMBAT = "?????CEFMHU?'?????0???+";
 const KEYS_ADV    = "8465S????HUR?IAD*/0.L2+";
 
 async function pmv(k) {
-  const keys = FS(9) ? KEYS_COMBAT : KEYS_ADV;
-  const i = (k.length === 1 && k !== '?') ? keys.indexOf(k) : -1;
-  if (i < 0) { beep(3000, .05); return; }
-  await ACTIONS[i]();
+  if (k && typeof k === 'object' && k.act) await k.act();        // an action from the inventory manager
+  else {
+    const keys = FS(9) ? KEYS_COMBAT : KEYS_ADV;
+    const i = (typeof k === 'string' && k.length === 1 && k !== '?') ? keys.indexOf(k) : -1;
+    if (i < 0) { beep(3000, .05); return; }
+    await ACTIONS[i]();
+  }
   if (FS(3)) return;
   if (FS(1)) {
     CF(1);
@@ -1135,13 +1186,29 @@ document.getElementById('keys').addEventListener('click', e => {
   if (k === '+' && !confirm('Quit this game?')) return;
   press(k);
 });
-document.getElementById('pack').addEventListener('click', e => {
-  const li = e.target.closest('li[data-i]');
-  if (li && waiting && waiting.mode === 'pick' && pickList === G.IVT) press(Number(li.dataset.i));
-});
-document.getElementById('inuse').addEventListener('click', e => {
-  const li = e.target.closest('li[data-i]');
-  if (li && waiting && waiting.mode === 'pick' && pickList === G.UIVT) press(Number(li.dataset.i));
+document.getElementById('invpanel').addEventListener('click', e => {
+  if (!G || !waiting) return;
+  const b = e.target.closest('button[data-act]');
+  if (b) {
+    if (b.disabled || waiting.mode !== 'main' || G.over) return;
+    unlockAudio();
+    const list = b.dataset.src === 'u' ? G.UIVT : G.IVT;
+    const it = list[Number(b.dataset.i) - 1];
+    if (!it) return;
+    const act = b.dataset.act;
+    press({ act: async () => {
+      if (act === 'use') { const i = G.IVT.indexOf(it); if (i >= 0) await iuse(i + 1); }
+      else if (act === 'equip') { if (G.IVT.includes(it)) await equipItem(it); }
+      else if (act === 'drop') dropItem(it);
+      else if (act === 'remove') unequip(it);
+    } });
+    return;
+  }
+  const row = e.target.closest('.irow[data-pick]');
+  if (row && waiting.mode === 'pick') {
+    const src = row.dataset.src;
+    if ((src === 'p' && pickList === G.IVT) || (src === 'u' && pickList === G.UIVT)) press(Number(row.dataset.pick));
+  }
 });
 function newGame() {
   if (G && !G.over && !confirm('Start a new game? This one will be lost.')) return;
@@ -1395,11 +1462,48 @@ function logMsg(s) {
 }
 
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]); }
-function fillList(el, list) {
-  el.classList.toggle('pickable', pickList === list && !!waiting);
-  el.innerHTML = list.length
-    ? list.map((it, i) => '<li data-i="' + (i + 1) + '"><span class="n">' + (i + 1) + '</span><span>' + esc(itemName(it)) + '</span></li>').join('')
-    : '<li class="empty">Nothing</li>';
+let invSig = '', invSeq = 0;
+function icon(name) { return ICONS[name]('v' + (invSeq++) + '_'); }
+function renderInv() {
+  const ready = !!waiting && waiting.mode === 'main' && !G.over;
+  const picking = !!waiting && waiting.mode === 'pick';
+  const combat = FS(9);
+  const sig = JSON.stringify([G.IVT.map(itemName), G.UIVT.map(itemName), ready, picking, combat,
+    picking && pickList === G.IVT, picking && pickList === G.UIVT]);
+  if (sig === invSig) return;
+  invSig = sig;
+  const btn = (act, src, i, name, title, off) =>
+    '<button type="button" class="ab" data-act="' + act + '" data-src="' + src + '" data-i="' + i + '" title="' + title + '"' +
+    (off ? ' disabled' : '') + '>' + icon(name) + '</button>';
+  const verb = { 1: 'Zap', 3: 'Drink', 4: 'Read', 7: 'Eat' };
+  const eqVerb = { 2: 'Put on', 5: 'Wield', 6: 'Wear' };
+
+  // Equipped: one row per slot
+  const pickU = picking && pickList === G.UIVT;
+  document.getElementById('eqList').innerHTML = [[5, 'Weapon', 'Bare hands'], [6, 'Armour', 'None'], [2, 'Ring', 'None']].map(([type, slot, none]) => {
+    const i = G.UIVT.findIndex(it => it.def.type === type);
+    if (i < 0) return '<li class="irow"><span class="slot">' + slot + '</span><span class="ti empty"></span><span class="nm none">' + none + '</span></li>';
+    const it = G.UIVT[i];
+    return '<li class="irow"' + (pickU ? ' data-pick="' + (i + 1) + '" data-src="u"' : '') + '><span class="slot">' + slot + '</span>' +
+      '<span class="ti">' + icon(TYPE_ICON[type]) + '</span><span class="nm" title="' + esc(itemName(it)) + '">' + esc(itemName(it)) + '</span>' +
+      '<span class="acts">' + btn('remove', 'u', i + 1, 'remove', 'Remove ' + esc(itemName(it)) + (combat ? ' (not while fighting)' : ''), !ready || combat) + '</span></li>';
+  }).join('');
+
+  // Pack: every item with the things you can do to it
+  const pickP = picking && pickList === G.IVT;
+  document.getElementById('packCount').textContent = '(' + G.IVT.length + ' / 26)';
+  document.getElementById('packList').innerHTML = G.IVT.length ? G.IVT.map((it, k) => {
+    const i = k + 1, t = it.def.type, name = esc(itemName(it));
+    let acts = '';
+    if (verb[t]) acts += btn('use', 'p', i, 'aUse', verb[t] + ' ' + name, !ready);
+    if (eqVerb[t]) {
+      const worn = G.UIVT.find(u => u.def.type === t);
+      acts += btn('equip', 'p', i, 'aEquip', eqVerb[t] + ' ' + name + (worn ? ' (swaps out ' + esc(itemName(worn)) + ')' : ''), !ready);
+    }
+    acts += btn('drop', 'p', i, 'drop', 'Drop ' + name + (combat ? ' (not while fighting)' : ''), !ready || combat);
+    return '<li class="irow"' + (pickP ? ' data-pick="' + i + '" data-src="p"' : '') + '><span class="ti">' + icon(TYPE_ICON[t]) + '</span>' +
+      '<span class="nm" title="' + name + '">' + name + '</span><span class="acts">' + acts + '</span></li>';
+  }).join('') : '<li class="invempty">Nothing yet. Press * on a square with an item to pick it up.</li>';
 }
 function updatePanel() {
   if (!G) return;
@@ -1410,11 +1514,10 @@ function updatePanel() {
     ['Level', G.LVL], ['Experience', G.EXPS], ['Armour', G.ARM],
     ['Hit points', Math.max(G.HP, 0) + ' / ' + G.MHP], ['Spell energy', G.SP + ' / ' + G.MSP], ['State', G.over ? 'Game over' : combat ? 'Fighting' : 'Exploring']
   ].map(([k, v]) => '<div><span>' + k + '</span>' + esc(v) + '</div>').join('');
-  fillList(document.getElementById('pack'), G.IVT);
-  fillList(document.getElementById('inuse'), G.UIVT);
   const picking = !!waiting && waiting.mode === 'pick';
   document.getElementById('calc').classList.toggle('picking', picking);
-  document.getElementById('pickHint').textContent = picking ? 'Click an item in the pack to pick it' : '';
+  renderInv();
+  document.getElementById('pickHint').textContent = picking ? 'Click an item below to pick it' : '';
   // Enable the keys that do something right now
   const valid = combat ? KEYS_COMBAT : KEYS_ADV;
   document.querySelectorAll('.mainkeys button[data-key]').forEach(b => {
