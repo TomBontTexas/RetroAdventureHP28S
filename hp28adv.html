@@ -115,16 +115,35 @@
   .picking .pickrow { display: grid; }
   .picking .mainkeys { display: none; }
 
-  .panel { background: #23211f; border: 1px solid var(--body-edge); border-radius: 10px; padding: 12px; }
+  .panel { background: #23211f; border: 1px solid var(--body-edge); border-radius: 10px; padding: 12px;
+    display: flex; flex-direction: column; min-width: 0; }
+  .mapbox { flex: 1 1 0; display: flex; flex-direction: column; min-height: 200px; }
+  @media (min-width: 861px) { .grid > .panel { contain: size; } }
+  .inv { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 10px; flex: none; }
+  #pack, #inuse { max-height: 104px; overflow-y: auto; }
+  ol.items li span:last-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pickhint { color: var(--accent); font-size: 12px; flex: none; }
+  .pickhint:empty { display: none; }
+  .panel h2 { flex: none; }
+  #map { flex: 1 1 0; width: 100%; min-height: 150px; background: #16140f; border: 1px solid #3a3226; border-radius: 6px; }
+  .maptabs { float: right; text-transform: none; letter-spacing: 0; }
+  .maptabs button { font: 600 11px system-ui, sans-serif; background: #34302a; color: var(--muted); border: 1px solid #4a443c;
+    border-radius: 4px; padding: 1px 7px; margin-left: 4px; cursor: pointer; }
+  .maptabs button.on { background: var(--accent); color: #1f1400; border-color: var(--accent); }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11px; color: var(--muted); margin-top: 6px; }
+  .legend span { display: inline-flex; align-items: center; gap: 4px; }
+  .legend i { display: inline-block; width: 14px; height: 4px; border-radius: 2px; }
+  .lg-path { background: #e0a24a; }
+  .lg-door { background: #b8742a; height: 7px !important; outline: 1px solid #2a1606; }
   .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px 10px; font-size: 14px; }
   .stats div span { color: var(--muted); font-size: 12px; display: block; }
   ol.items { margin: 0; padding: 0; list-style: none; font-size: 14px; }
-  ol.items li { display: flex; gap: 8px; padding: 3px 6px; border-radius: 5px; }
+  ol.items li { display: flex; gap: 6px; padding: 2px 4px; min-width: 0; border-radius: 5px; }
   ol.items li .n { color: var(--muted); width: 1.6em; text-align: right; flex: none; font-variant-numeric: tabular-nums; }
   ol.items li.empty { color: var(--muted); font-style: italic; }
   .picking ol.pickable li:not(.empty) { cursor: pointer; background: #2f2c29; margin-bottom: 2px; }
   .picking ol.pickable li:not(.empty):hover { background: #3e3a35; outline: 1px solid var(--accent); }
-  .log { font: 13px/1.4 ui-monospace, Consolas, monospace; max-height: 190px; overflow-y: auto;
+  .log { font: 13px/1.4 ui-monospace, Consolas, monospace; height: 96px; flex: none; overflow-y: auto;
     background: #1a1917; border-radius: 6px; padding: 6px 8px; }
   .log div { color: var(--muted); }
   .log div:last-child { color: var(--text); }
@@ -239,12 +258,24 @@
       <div class="panel">
         <h2>Character</h2>
         <div class="stats" id="stats"></div>
-        <h2>Pack <small id="pickHint" style="text-transform:none;letter-spacing:0;color:var(--accent)"></small></h2>
-        <ol class="items" id="pack"></ol>
-        <h2>In use</h2>
-        <ol class="items" id="inuse"></ol>
+        <div class="inv">
+          <div><h2>Pack</h2><ol class="items" id="pack"></ol></div>
+          <div><h2>In use</h2><ol class="items" id="inuse"></ol></div>
+        </div>
+        <div id="pickHint" class="pickhint"></div>
         <h2>Messages</h2>
         <div class="log" id="log"></div>
+        <div class="mapbox">
+          <h2>Map <span class="maptabs" id="mapTabs"></span></h2>
+          <canvas id="map" aria-label="Map of the squares you have visited"></canvas>
+          <div class="legend">
+            <span><i class="lg-path"></i>Your path</span>
+            <span><i class="lg-door"></i>Door</span>
+            <span><b style="color:#7ad85a">&#9650;</b>Ascend</span>
+            <span><b style="color:#ff9a3a">&#9660;</b>Descend</span>
+            <span><b style="color:#ff5a4a">&#10148;</b>You</span>
+          </div>
+        </div>
       </div>
   </div>
 
@@ -597,7 +628,8 @@ function setup() {
     HP: 10, SP: 10, MHP: 10, MSP: 10, SPD: 0, ARM: 0, XLOC: 0, YLOC: 0, OXLOC: 0, OYLOC: 0,
     RNG: 0n, WEP: 1, IVT: [], UIVT: [], LVL: 1, EXPS: 0, DPTH: 1, FDIR: 1,
     F: 8n, L: 1n, R: 2n, TME: 0, tick: 0, LVLS: loadMap(), DMD: [], MNSTR: null,
-    MES1: '', MES2: '', dirty: false, over: false
+    MES1: '', MES2: '', dirty: false, over: false,
+    seen: [new Set(), new Set(), new Set()], trail: [[], [], []], last: null
   };
 }
 
@@ -713,6 +745,7 @@ function pstat() {
 // What the screen shows: the game view with messages, an item list to pick from, or the end of the game
 let screen = { type: 'play', m1: '', m2: '' };
 function render() {
+  recordVisit();
   screen = { type: 'play', m1: G.MES1, m2: G.MES2 };
   show(G.anim || null, true);
   if (/ouch/.test(screen.m1 + screen.m2) && isModern()) {
@@ -1015,6 +1048,7 @@ let pickList = null;
 let timerId = null;
 
 function getKey(mode) {
+  if (mode === 'main') recordVisit();
   if (mode === 'main' && G.dirty) render();
   return new Promise((resolve, reject) => {
     waiting = { mode, resolve, reject };
@@ -1112,6 +1146,126 @@ function beep(freq, dur) {
   } catch (e) {}
 }
 
+/* ===================== Map of where you have been ===================== */
+let mapView = 0;        // 0 = follow the level you're on, else the level picked in the tabs
+function recordVisit() {
+  const d = G.DPTH - 1;
+  if (!G.seen[d]) { G.seen[d] = new Set(); G.trail[d] = []; }
+  const L = G.last, x = G.XLOC, y = G.YLOC;
+  if (L && L.d === d && L.x === x && L.y === y) return;
+  const tr = G.trail[d];
+  const adjacent = L && L.d === d && Math.abs(L.x - x) + Math.abs(L.y - y) === 1;
+  if (!adjacent && tr.length) tr.push(null);               // teleport or level change: break the line
+  tr.push([x, y]);
+  G.seen[d].add(x + ',' + y);
+  G.last = { d, x, y };
+}
+
+function drawMap() {
+  const cv = document.getElementById('map');
+  const W = cv.clientWidth, H = cv.clientHeight;
+  if (!W || !H || !G) return;
+  const dpr = window.devicePixelRatio || 1;
+  if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+  const c = cv.getContext('2d');
+  c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  c.clearRect(0, 0, W, H);
+
+  // Level tabs for every level you've been on
+  const levels = G.seen.map((s, i) => s && s.size ? i + 1 : 0).filter(Boolean);
+  const lvl = mapView && levels.includes(mapView) ? mapView : G.DPTH;
+  document.getElementById('mapTabs').innerHTML = levels.length > 1
+    ? levels.map(l => '<button type="button" data-l="' + l + '" class="' + (l === lvl ? 'on' : '') + '">Level ' + l + '</button>').join('') : '';
+  const d = lvl - 1, seen = G.seen[d];
+  if (!seen || !seen.size) return;
+
+  const cells = [...seen].map(k => k.split(',').map(Number));
+  const xs = cells.map(a => a[0]), ys = cells.map(a => a[1]);
+  const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
+  const cols = maxX - minX + 1, rows = maxY - minY + 1;
+  const cs = Math.max(6, Math.min(30, Math.floor(Math.min((W - 20) / cols, (H - 20) / rows))));
+  const ox = Math.round((W - cols * cs) / 2), oy = Math.round((H - rows * cs) / 2);
+  const X = x => ox + (x - minX) * cs, Y = y => oy + (maxY - y) * cs;     // top-left corner; north is up
+  const lw = Math.max(2, Math.round(cs * .12));
+
+  // Floors
+  for (const [x, y] of cells) {
+    c.fillStyle = '#3a342a'; c.fillRect(X(x), Y(y), cs, cs);
+    c.strokeStyle = 'rgba(255,255,255,.05)'; c.lineWidth = 1; c.strokeRect(X(x) + .5, Y(y) + .5, cs - 1, cs - 1);
+  }
+  // Path
+  c.strokeStyle = 'rgba(224,162,74,.75)'; c.lineWidth = Math.max(2, cs * .16); c.lineJoin = 'round'; c.lineCap = 'round';
+  c.beginPath();
+  let pen = false;
+  for (const pt of G.trail[d]) {
+    if (!pt) { pen = false; continue; }
+    const px = X(pt[0]) + cs / 2, py = Y(pt[1]) + cs / 2;
+    if (pen) c.lineTo(px, py); else { c.moveTo(px, py); pen = true; }
+  }
+  c.stroke();
+  // Walls, doors, holes
+  const lv = G.LVLS[d];
+  for (const [x, y] of cells) {
+    const v = lv.get(x + ',' + y) || 0n;
+    const x0 = X(x), y0 = Y(y), x1 = x0 + cs, y1 = y0 + cs;
+    const edges = [[8n, x0, y0, x1, y0], [4n, x0, y1, x1, y1], [2n, x1, y0, x1, y1], [1n, x0, y0, x0, y1]];
+    for (const [bit, ax, ay, bx, by] of edges) {
+      const wall = (v & bit) !== 0n, door = (v & (bit << 8n)) !== 0n;
+      if (!wall && !door) continue;
+      c.strokeStyle = '#d8c8a0'; c.lineWidth = lw; c.lineCap = 'square';
+      c.beginPath();
+      if (wall) { c.moveTo(ax, ay); c.lineTo(bx, by); }
+      else {                                          // door: wall stubs at each end and a door leaf in the middle
+        const q = .25;
+        c.moveTo(ax, ay); c.lineTo(ax + (bx - ax) * q, ay + (by - ay) * q);
+        c.moveTo(bx, by); c.lineTo(bx - (bx - ax) * q, by - (by - ay) * q);
+      }
+      c.stroke();
+      if (door) {
+        const horiz = ay === by, dw = Math.max(4, cs * .22), len = cs * .5;
+        const mx = (ax + bx) / 2, my = (ay + by) / 2;
+        c.fillStyle = '#b8742a'; c.strokeStyle = '#2a1606'; c.lineWidth = 1;
+        const rx = horiz ? mx - len / 2 : mx - dw / 2, ry = horiz ? my - dw / 2 : my - len / 2;
+        c.fillRect(rx, ry, horiz ? len : dw, horiz ? dw : len);
+        c.strokeRect(rx + .5, ry + .5, (horiz ? len : dw) - 1, (horiz ? dw : len) - 1);
+      }
+    }
+    const tri = (up, col, dx) => {
+      const s = cs * .26, cx = x0 + cs / 2 + dx, cy = y0 + cs / 2;
+      c.fillStyle = col; c.strokeStyle = '#000'; c.lineWidth = 1;
+      c.beginPath();
+      if (up) { c.moveTo(cx, cy - s); c.lineTo(cx + s, cy + s * .8); c.lineTo(cx - s, cy + s * .8); }
+      else { c.moveTo(cx, cy + s); c.lineTo(cx + s, cy - s * .8); c.lineTo(cx - s, cy - s * .8); }
+      c.closePath(); c.fill(); c.stroke();
+    };
+    const up = (v & 0x10n) !== 0n, down = (v & 0x20n) !== 0n;
+    if (up) tri(true, '#7ad85a', down ? -cs * .2 : 0);
+    if (down) tri(false, '#ff9a3a', up ? cs * .2 : 0);
+  }
+  // Start of the game
+  if (d === 0 && seen.has('0,0')) {
+    c.strokeStyle = '#7fb2d9'; c.lineWidth = 2;
+    c.beginPath(); c.arc(X(0) + cs / 2, Y(0) + cs / 2, cs * .3, 0, Math.PI * 2); c.stroke();
+  }
+  // You, pointing the way you face
+  if (lvl === G.DPTH) {
+    const cx = X(G.XLOC) + cs / 2, cy = Y(G.YLOC) + cs / 2, s = Math.max(5, cs * .34);
+    const ang = [-Math.PI / 2, Math.PI / 2, 0, Math.PI][G.FDIR - 1];
+    c.save(); c.translate(cx, cy); c.rotate(ang);
+    c.fillStyle = '#ff5a4a'; c.strokeStyle = '#fff'; c.lineWidth = 1.5;
+    c.beginPath(); c.moveTo(s, 0); c.lineTo(-s * .7, s * .75); c.lineTo(-s * .35, 0); c.lineTo(-s * .7, -s * .75); c.closePath();
+    c.fill(); c.stroke(); c.restore();
+  }
+}
+document.getElementById('mapTabs').addEventListener('click', e => {
+  const b = e.target.closest('button[data-l]');
+  if (!b) return;
+  const l = Number(b.dataset.l);
+  mapView = l === G.DPTH ? 0 : l;
+  drawMap();
+});
+window.addEventListener('resize', () => drawMap());
+
 /* ===================== Side panel ===================== */
 const logEl = document.getElementById('log');
 let turnLine = null, lastText = '', repeat = 1;
@@ -1146,6 +1300,7 @@ function fillList(el, list) {
 }
 function updatePanel() {
   if (!G) return;
+  drawMap();
   const combat = FS(9);
   document.getElementById('stats').innerHTML = [
     ['Level', G.LVL], ['Experience', G.EXPS], ['Armour', G.ARM],
@@ -1155,7 +1310,7 @@ function updatePanel() {
   fillList(document.getElementById('inuse'), G.UIVT);
   const picking = !!waiting && waiting.mode === 'pick';
   document.getElementById('calc').classList.toggle('picking', picking);
-  document.getElementById('pickHint').textContent = picking ? '— click an item to pick it' : '';
+  document.getElementById('pickHint').textContent = picking ? 'Click an item in the pack to pick it' : '';
   // Enable the keys that do something right now
   const valid = combat ? KEYS_COMBAT : KEYS_ADV;
   document.querySelectorAll('.mainkeys button[data-key]').forEach(b => {
