@@ -758,7 +758,7 @@ function mspcl(x, y) {
     SF(9);
   }
   const it = Number((v >> 24n) & 255n);
-  if (it) M2(itemFromCode(it).def.name);
+  if (it) M2(itemName(itemFromCode(it)));
 }
 
 /* ===================== Drawing ===================== */
@@ -1039,8 +1039,11 @@ const ACTIONS = [
     else {
       const item = itemFromCode(it);
       G.IVT.push(item);
-      M1('Picked up');
-      M2(itemName(item));
+      // Scrolls say what they are when picked up; the Ancient scroll (Blank paper) stays a deliberate secret
+      if (item.def.type === 4 && item.def !== LSCRL[6]) {
+        learn(item.def);
+        M1(itemName(item)); M2(itemDesc(item));
+      } else { M1('Picked up'); M2(itemName(item)); }
       sput(G.XLOC, G.YLOC, v & 0xFFFFFFFF00FFFFFFn);
     }
   },
