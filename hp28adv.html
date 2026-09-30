@@ -1099,7 +1099,11 @@ async function play(saved) {
   setup();
   if (saved) restoreGame(saved);
   clearLog();
-  if (saved) logMsg('Game loaded');
+  if (saved) {
+    logMsg('Game loaded');
+    const ids = [...new Set(G.loadIdentified || [])];
+    if (ids.length) { newLogTurn(); logMsg('Identified: ' + ids.join(', ')); }
+  }
   document.getElementById('over').classList.remove('show');
   render();
   let resume = !!saved;          // a loaded game carries on with your move, without an extra tick
@@ -1298,6 +1302,12 @@ function restoreGame(s) {
   if (s.MNSTR && MLST[s.MNSTR.i]) G.MNSTR = { ...MLST[s.MNSTR.i], hp: s.MNSTR.hp }; else { G.MNSTR = null; CF(9); }
   G.seen = [0, 1, 2].map(i => new Set((s.seen && s.seen[i]) || []));
   G.known = new Set((s.known || []).map(Number));
+  // Saves from before these rules: equipped items and carried scrolls (except the Ancient scroll) are identified
+  G.loadIdentified = [];
+  for (const it of G.UIVT.concat(G.IVT.filter(it => it.def.type === 4 && it.def !== LSCRL[6]))) {
+    const code = Number(it.def.code >> 24n);
+    if (!G.known.has(code) && !it.known) { G.known.add(code); G.loadIdentified.push(it.def.real || it.def.name); }
+  }
   G.trail = [0, 1, 2].map(i => (s.trail && s.trail[i]) || []);
   G.last = s.last || null;
   G.F = [8n, 4n, 2n, 1n][G.FDIR - 1]; G.L = [1n, 2n, 8n, 4n][G.FDIR - 1]; G.R = [2n, 1n, 4n, 8n][G.FDIR - 1];
