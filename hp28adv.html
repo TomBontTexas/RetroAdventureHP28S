@@ -85,17 +85,28 @@
     color: var(--muted); margin: 10px 0 6px; font-weight: 600; }
   .keys h2:first-child, .panel h2:first-child { margin-top: 0; }
   .row { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
-  button.k { appearance: none; border: 1px solid #56514b; border-bottom-width: 3px; background: var(--key);
-    color: var(--key-text); border-radius: 7px; padding: 5px 2px 4px; cursor: pointer; min-height: 48px;
-    font: inherit; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  button.k { appearance: none; border: 0; background: transparent; color: var(--key-text); border-radius: 7px;
+    padding: 4px 2px 5px; cursor: pointer; font: inherit; display: flex; flex-direction: column; align-items: center;
+    justify-content: flex-start; gap: 4px; }
   button.k b { font-size: 16px; line-height: 1.1; }
-  button.k small { font-size: 11px; color: var(--muted); line-height: 1.2; }
-  button.k:hover:not(:disabled) { background: var(--key-hi); }
-  button.k:active:not(:disabled) { transform: translateY(1px); border-bottom-width: 2px; }
-  button.k:disabled { opacity: .32; cursor: default; }
-  button.k.fight { border-color: #7a4a40; }
-  button.k.fight b { color: var(--danger); }
-  button.k.spell b { color: var(--blue); }
+  button.k small { font-size: 11px; color: var(--muted); line-height: 1.2; text-align: center; }
+  button.k:hover:not(:disabled) small { color: var(--text); }
+  button.k:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  /* Ability icon: painted square, dark bevel, bronze frame that lights up gold on hover */
+  .ic { position: relative; display: block; width: clamp(40px, 11vw, 54px); aspect-ratio: 1; border-radius: 5px;
+    box-shadow: 0 0 0 1px #000, 0 0 0 3px #5a4a30, 0 0 0 4px #000, 0 3px 6px rgba(0,0,0,.6);
+    transition: box-shadow .12s, filter .12s, transform .06s; }
+  .ic .art, .ic svg { display: block; width: 100%; height: 100%; border-radius: 5px; }
+  .ic::after { content: ""; position: absolute; inset: 0; border-radius: 5px; pointer-events: none;
+    box-shadow: inset 0 0 9px 2px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.35), inset 0 -1px 0 rgba(0,0,0,.6); }
+  .ic .hk { position: absolute; top: 1px; right: 3px; z-index: 1; font: 700 12px/1 system-ui, sans-serif; color: #fff;
+    text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000; }
+  .ic .hk.punct { font-size: 17px; top: -1px; }
+  button.k:hover:not(:disabled) .ic { box-shadow: 0 0 0 1px #000, 0 0 0 3px #e8b84a, 0 0 0 4px #000, 0 0 12px 3px rgba(255,190,60,.55); filter: brightness(1.15); }
+  button.k:active:not(:disabled) .ic { transform: scale(.94); filter: brightness(.85); }
+  button.k:disabled { cursor: default; }
+  button.k:disabled .ic { filter: grayscale(1) brightness(.45); }
+  button.k:disabled small { opacity: .45; }
   button.k.blank { visibility: hidden; }
   .pickrow { display: none; }
   .picking .pickrow { display: grid; }
@@ -290,6 +301,7 @@
 <script src="version.js"></script>
 <script src="update-banner.js"></script>
 <script src="view3d.js"></script>
+<script src="icons.js"></script>
 <script>
 'use strict';
 document.getElementById('ver').textContent = window.APP_VERSION;
@@ -1154,6 +1166,7 @@ function updatePanel() {
     b.disabled = G.over || !valid.includes(b.dataset.key);
   });
   document.querySelector('#key0 small').textContent = combat ? 'Attack' : 'Redraw';
+  setIcon(document.getElementById('key0'), combat ? 'attack' : 'look');
 }
 
 /* ===================== Options ===================== */
@@ -1178,6 +1191,7 @@ try {
   }
 } catch (e) {}
 applyMode();
+decorateKeys(document.getElementById('keys'));
 V3.init(document.getElementById('view'));
 document.getElementById('optSound').addEventListener('change', saveOpts);
 document.getElementById('optMode').addEventListener('change', () => {
